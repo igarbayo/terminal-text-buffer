@@ -1,0 +1,91 @@
+package com.terminal.buffer;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class ScrollbackTest {
+
+    private TerminalBuffer buf;
+
+    @BeforeEach
+    void setUp() {
+        buf = new TerminalBuffer(5, 3, 100);
+    }
+
+    @Test
+    void getLineMinus1ReturnsMostRecentScrollbackLine() {
+        buf.setCursor(0, 0);
+        buf.writeText("First");
+        buf.insertEmptyLine();
+        assertEquals("First", buf.getLine(-1));
+    }
+
+    @Test
+    void scrollbackLinesOrderedOldestToNewest() {
+        buf.setCursor(0, 0);
+        buf.writeText("AAA");
+        buf.insertEmptyLine();
+        buf.setCursor(0, 0);
+        buf.writeText("BBB");
+        buf.insertEmptyLine();
+
+        // row -1 = newest = "BBB", row -2 = oldest = "AAA"
+        assertEquals("BBB", buf.getLine(-1));
+        assertEquals("AAA", buf.getLine(-2));
+    }
+
+    @Test
+    void getAllContentReturnScrollbackThenScreen() {
+        buf = new TerminalBuffer(3, 2, 100);
+        buf.setCursor(0, 0);
+        buf.writeText("AAA");
+        buf.insertEmptyLine();
+        buf.setCursor(0, 0);
+        buf.writeText("BBB");
+
+        // scrollback: "AAA"; screen row0: "BBB", row1: blank
+        String all = buf.getAllContent();
+        String[] lines = all.split("\n", -1);
+        assertEquals("AAA", lines[0]);
+        assertEquals("BBB", lines[1]);
+        assertEquals("   ", lines[2]);
+    }
+
+    @Test
+    void getLineOutOfBoundsThrowsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () -> buf.getLine(-1),
+                "should throw when scrollback is empty");
+        assertThrows(IllegalArgumentException.class, () -> buf.getLine(buf.getHeight()),
+                "should throw for row >= height");
+    }
+
+    @Test
+    void clearScreenDoesNotAffectScrollback() {
+        buf.insertEmptyLine();
+        buf.insertEmptyLine();
+        buf.clearScreen();
+        assertEquals(2, buf.getScrollbackSize());
+    }
+
+    @Test
+    void clearAllResetsScrollbackToZero() {
+        buf.insertEmptyLine();
+        buf.insertEmptyLine();
+        buf.clearAll();
+        assertEquals(0, buf.getScrollbackSize());
+        assertThrows(IllegalArgumentException.class, () -> buf.getLine(-1));
+    }
+
+    @Test
+    void scrollbackAttributesArePreserved() {
+        buf.setForeground(TerminalColor.RED);
+        buf.setCursor(0, 0);
+        buf.writeText("R");
+        buf.insertEmptyLine();
+
+        CellAttributes attrs = buf.getAttributesAt(0, -1);
+        assertEquals(TerminalColor.RED, attrs.getForeground());
+    }
+}
