@@ -138,3 +138,5 @@ This implementation was built using **TDD (Test-Driven Development)** in a botto
 10. Content access edge cases (`getLine`, `getAllContent`)
 11. Wide character support
 12. Resize
+
+We'all use Git Flow branching for feature development and pull requests for code review. Each commit is focused on a single behavior or refactor, with descriptive messages.
