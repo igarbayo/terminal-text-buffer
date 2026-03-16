@@ -312,3 +312,6 @@ HTML report: `build/reports/tests/test/index.html`
 | `ContentAccessTest` | getLine trimming, getRawLine fixed width, getAllContent |
 | `WideCharTest` | 2-cell rendering, right-edge truncation |
 | `ResizeTest` | Truncate/pad rows, height shrink → scrollback |
+
+<!-- SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es> -->
+<!-- SPDX-License-Identifier: MIT -->

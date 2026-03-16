@@ -1,26 +1,107 @@
 # Terminal Text Buffer
 
-A terminal text buffer implementation in Java — the core data structure used by terminal emulators to store and render text output.
+[![CI](https://github.com/igarbayo/terminal-text-buffer/actions/workflows/ci.yml/badge.svg)](https://github.com/igarbayo/terminal-text-buffer/actions/workflows/ci.yml)
+[![REUSE Compliant](https://api.reuse.software/badge/github.com/igarbayo/terminal-text-buffer)](https://api.reuse.software/info/github.com/igarbayo/terminal-text-buffer)
 
-## Building and Running Tests
+> A terminal text buffer implementation in Java — the core data structure used by
+> terminal emulators to store, edit, and render text output.
+
+---
+
+## What is this?
+
+When a shell prints output, something has to keep track of what character is in
+each cell of the screen, what colour it has, and where the cursor is. That
+"something" is a terminal buffer.
+
+This library implements that data structure from scratch in Java, without any
+external runtime dependencies. It is meant for developers who are:
+
+- building a terminal emulator or TUI framework,
+- studying how terminal emulators work internally, or
+- looking for a clean, tested reference implementation.
+
+It is **not** a terminal emulator itself — it does not parse escape sequences,
+drive a display, or handle input events. It is the data layer only.
+
+---
+
+## Known Limitations
+
+Be aware of these before you use it:
+
+- **Wide characters in Windows PowerShell / CMD:** PowerShell replaces CJK
+  ideographs and many emoji with `?` before they reach the JVM. Wide character
+  support works correctly in the library (verified by the automated test suite)
+  but cannot be tested interactively from those terminals. Use IntelliJ's
+  built-in terminal or Windows Terminal with `chcp 65001`.
+
+- **Scrollback access is O(n):** `resolveRow()` iterates an `ArrayDeque` to
+  find a scrollback row by index. For large scrollback sizes this is linear.
+  See [Architecture & Design](#architecture--design) for the recommended fix.
+
+- **Supplementary-plane emoji (U+1F300+):** The `Cell` class stores characters
+  as `char` (UTF-16 code unit). Codepoints above U+FFFF are detected correctly
+  via `codePointAt` but stored as `(char) codePoint`, losing the high surrogate.
+  Changing `Cell.character` to `int` would fix this.
+
+---
+
+## Quick Start
+
+**Requirements:** Java 8+, no external runtime dependencies.
 
 ```bash
+git clone https://github.com/igarbayo/terminal-text-buffer.git
+cd terminal-text-buffer
 ./gradlew test
 ```
 
-Requires Java 8+. No external libraries except JUnit 5 for testing.
+All 14 test classes run. The HTML report is at
+`build/reports/tests/test/index.html`.
+
+> **Windows note:** if Gradle cannot find the compiler, set
+> `org.gradle.java.home` in `gradle.properties` to point to your JDK (not JRE):
+> ```
+> org.gradle.java.home=C:\\Program Files\\Java\\jdk1.8.0_261
+> ```
+
+### Use the buffer in your code
+
+```java
+// Create an 80x24 buffer with 500 lines of scrollback
+TerminalBuffer buf = new TerminalBuffer(80, 24, 500);
+
+// Set attributes and write
+buf.setForeground(TerminalColor.RED);
+buf.addStyle(TextStyle.BOLD);
+buf.writeText("Hello, terminal!");
+
+// Move the cursor and write more
+buf.setCursor(0, 1);
+buf.resetAttributes();
+buf.writeText("Normal text on row 1");
+
+// Read back
+String line0 = buf.getLine(0);   // "Hello, terminal!"
+char   ch     = buf.getChar(0, 0); // 'H'
+```
+
+---
 
 ## Interactive REPL
 
-A command-line REPL is included to test the buffer manually:
+A command-line REPL lets you poke at the buffer manually:
 
 ```bash
 ./gradlew run --console=plain -q
 ```
 
-Type `help` inside the REPL to list all commands, or see the table below:
+Type `help` at the prompt to see all commands, or consult the
+[manual testing guide](docs/manual-testing-guide.md) for a full walkthrough
+with expected output.
 
-| Command | Description |
+| Command | What it does |
 |---|---|
 | `write <text>` | Write text at cursor position (overwrite) |
 | `insert <text>` | Insert text at cursor, shifting content right |
@@ -44,12 +125,9 @@ Type `help` inside the REPL to list all commands, or see the table below:
 
 Colors: `DEFAULT RED GREEN YELLOW BLUE MAGENTA CYAN WHITE BLACK` and `BRIGHT_*` variants.
 
-See [docs/manual-testing-guide.md](docs/manual-testing-guide.md) for a full walkthrough
-of every feature and edge case, including expected output for each command.
-
 ---
 
-## Architecture
+## Architecture & Design
 
 ### Class Overview
 
@@ -67,101 +145,118 @@ TerminalBuffer (public)    — the main API class
 
 #### Immutability strategy: Cell immutable, Row mutable
 
-`Cell` and `CellAttributes` are immutable value objects. This makes it safe to share `Cell.EMPTY` everywhere without defensive copying, and ensures that scrollback history cannot be accidentally modified after a row is pushed there.
+`Cell` and `CellAttributes` are immutable value objects. This makes it safe to
+share `Cell.EMPTY` everywhere without defensive copying, and ensures that
+scrollback history cannot be accidentally modified after a row is pushed there.
 
-`Row` is mutable (package-private) — writing a character is O(1) instead of creating a new row array on every keystroke. When a row is pushed into scrollback, a copy-constructor snapshot is taken (`new Row(original)`), so future mutations to the screen row don't corrupt history.
+`Row` is mutable (package-private) — writing a character is O(1) instead of
+creating a new row array on every keystroke. When a row is pushed into
+scrollback, a copy-constructor snapshot is taken (`new Row(original)`), so
+future mutations to the screen row do not corrupt history.
 
 #### Color and style representation
 
-`TerminalColor` is a 17-value enum (DEFAULT + 16 standard ANSI colors). `TextStyle` flags use `EnumSet<TextStyle>`, which is backed by a long bitmask internally — compact, type-safe, and requires no custom bitfield arithmetic.
+`TerminalColor` is a 17-value enum (DEFAULT + 16 standard ANSI colors).
+`TextStyle` flags use `EnumSet<TextStyle>`, backed by a long bitmask internally
+— compact, type-safe, and no custom bitfield arithmetic needed.
 
 #### Scrollback storage
 
-`ArrayDeque<Row>` with front=oldest, back=newest. Gives O(1) push (addLast) and O(1) eviction (removeFirst). When the deque exceeds `maxScrollback`, the oldest entry is evicted.
+`ArrayDeque<Row>` with front=oldest, back=newest. O(1) push (`addLast`) and
+O(1) eviction (`removeFirst`). Random access by index is O(n) — a fixed-size
+`Row[]` circular buffer would give O(1) at the cost of complexity.
 
 #### Coordinate system
 
-- **Screen**: row `[0, height-1]`, where row 0 is the top (first visible line).
-- **Scrollback**: row `[-scrollbackSize, -1]`, where row `-1` is the most recently scrolled-off line (visually just above the screen) and row `-scrollbackSize` is the oldest.
+- **Screen**: row `[0, height-1]`, where row 0 is the top visible line.
+- **Scrollback**: row `[-scrollbackSize, -1]`, where row -1 is the most
+  recently scrolled-off line and `-scrollbackSize` is the oldest.
 
-This signed-integer convention unifies all content-access methods under a single `int row` parameter without needing a separate type or overloaded flag.
+This signed-integer convention unifies all content-access methods under a
+single `int row` parameter without needing a separate type or flag.
 
-#### Wide character support (bonus)
+#### Wide character support
 
-Uses the **placeholder cell strategy** (the same approach as xterm, VTE, and most real terminal emulators):
+Uses the **placeholder cell strategy** (same as xterm, VTE, and most real
+terminal emulators):
 
-- A wide glyph (CJK ideograph, emoji) at column `c` sets `cells[c] = WIDE_LEFT` and `cells[c+1] = WIDE_RIGHT`.
-- `WIDE_RIGHT` stores `'\0'` as its character and is skipped in `toContentString()`.
-- Writing over a `WIDE_LEFT` automatically clears its `WIDE_RIGHT` partner (and vice versa) to prevent half-wide artifacts.
-- A wide char that doesn't fit at the right edge is truncated (the column is left empty).
+- A wide glyph at column `c` sets `cells[c] = WIDE_LEFT` and
+  `cells[c+1] = WIDE_RIGHT`.
+- `WIDE_RIGHT` stores `'\0'` and is skipped in `toContentString()`.
+- Writing over either half of a wide pair automatically clears both halves.
+- A wide char that does not fit at the right edge is skipped.
 
-Wide character detection uses Unicode block ranges for CJK ideographs, Hangul, fullwidth forms, and common emoji (BMP range). Supplementary-plane emoji (U+1F300+) are detected via the `int codepoint` API.
+Detection uses Unicode block ranges directly (not `Character.getType()`, which
+is too restrictive for some ranges).
 
 #### `writeText` — pending wrap flag
 
-`writeText` implements xterm's **"pending wrap"** behavior rather than immediate truncation:
-
-- When the last character is written to column `width-1`, the cursor stays at `width-1` and an internal `pendingWrap = true` flag is set.
-- The _next_ call to `writeText` resolves the pending wrap first: it advances the cursor to column 0 of the next row (scrolling if at the last row), then writes the new character there.
-- Any explicit `setCursor` call clears `pendingWrap`.
-
-This matches real terminal behavior and allows consecutive writes to flow naturally across lines.
+When the last character is written to column `width-1`, the cursor stays there
+and `pendingWrap = true` is set internally. The next `writeText` call resolves
+the wrap first — advances to column 0 of the next row (inserting a new line if
+at the bottom) — then writes. This matches xterm behaviour.
 
 #### `insertText` — push-down wrapping
 
-`insertText` inserts characters at the cursor position, shifting existing row content right. Overflow flows to subsequent rows recursively:
+Inserts at the cursor, shifting existing row content right. Overflow flows to
+subsequent rows recursively:
 
-1. Capture existing content from cursor column to end of row.
+1. Capture content from cursor column to end of row.
 2. Merge: `combined = [new cells] + [existing]`.
-3. Write the first `(width - cursorCol)` elements of `combined` back into the row.
-4. If `combined` has more elements and they contain actual content (non-space, non-default), insert them at column 0 of the next row using the same algorithm.
-5. If this overflow reaches the last screen row, `insertEmptyLine()` is called — the top row scrolls into scrollback, and the new bottom row receives the overflow.
-
-Trailing spaces from displaced empty cells are detected by `hasActualContent()` and discarded to avoid propagating blank overflow infinitely.
+3. Write the first `(width - cursorCol)` cells back.
+4. If overflow contains actual content, recurse at column 0 of the next row.
+5. If overflow reaches the last row, `insertEmptyLine()` is called — the top
+   row scrolls into scrollback.
 
 #### `getLine` vs `getRawLine`
 
-- `getLine(row)` — returns the line content with trailing spaces trimmed. Convenient for tests and display.
-- `getRawLine(row)` — returns the fixed-width string (always `width` characters). Useful for width-sensitive rendering.
+- `getLine(row)` — content with trailing spaces trimmed. Convenient for tests.
+- `getRawLine(row)` — fixed-width string (always `width` characters). For
+  width-sensitive rendering.
 
-#### Resize (bonus)
+#### Resize
 
 `resize(newWidth, newHeight)` handles four cases:
 
 - **Wider**: rows padded with `Cell.EMPTY` at the right.
 - **Narrower**: rows truncated at the new width.
 - **Taller**: new empty rows appended at the bottom.
-- **Shorter**: rows removed from the top of the screen enter scrollback (same as scrolling).
-
-The cursor is clamped to the new bounds after resize.
+- **Shorter**: rows removed from the top enter scrollback.
 
 ---
 
 ## Trade-offs and Known Limitations
 
-- **`char` vs `int` for wide chars**: The implementation uses `char` (UTF-16 code unit) for cell storage, which covers BMP characters including all CJK ideographs and most common emoji. Supplementary-plane emoji above U+FFFF are detected via `codePointAt` but stored as `(char) codePoint`, which loses the high surrogate. Changing `Cell.character` to `int` (Unicode codepoint) would fix this without changing the public API of `TerminalBuffer`, and is the recommended future improvement.
+- **`char` vs `int` for wide chars**: Cell stores `char` (covers all BMP
+  including CJK). Supplementary-plane emoji above U+FFFF are detected but
+  stored with loss. Changing `Cell.character` to `int` fixes this without
+  changing the public API.
 
-- **`insertText` cursor position after overflow**: The cursor advancement after `insertText` uses arithmetic based on the total character count relative to the cursor start position. If `insertEmptyLine()` is triggered during overflow (causing rows to shift up), the cursor position is calculated relative to the final state. This is consistent in the current implementation but could be refined if complex multi-line insert scenarios are needed.
+- **`insertText` cursor position after overflow**: Cursor arithmetic is based
+  on total character count relative to the cursor start. Consistent in the
+  current implementation; could be refined for complex multi-line inserts.
 
-- **`insertText` hasActualContent check**: Trailing spaces from empty rows are suppressed to avoid infinite blank-cell propagation. However, if a user explicitly inserts spaces into a full row and wants those spaces to flow to the next line, they would be dropped. This is a pragmatic trade-off — meaningful overflow content is always preserved.
+- **`hasActualContent` trailing spaces**: Spaces from empty rows are suppressed
+  to avoid infinite blank-cell propagation. Intentional trailing spaces at the
+  end of a full row would be dropped.
 
-- **Scrollback access is O(n)**: `resolveRow()` for scrollback iterates the `ArrayDeque` to find the row at a given index. For production use, replacing `ArrayDeque` with a fixed-size circular buffer (`Row[]` + head/tail indices) would give O(1) random access. For the scope of this task, the simplicity of `ArrayDeque` is preferred.
+- **Scrollback access is O(n)**: See [Known Limitations](#known-limitations).
 
 ---
 
 ## Potential Improvements
 
 - Replace `ArrayDeque<Row>` with a `Row[]` circular buffer for O(1) scrollback access.
-- Change `Cell.character` from `char` to `int` (Unicode codepoint) for full supplementary-plane emoji support.
+- Change `Cell.character` from `char` to `int` for full supplementary-plane emoji support.
 - Add `Bidi` (bidirectional text) support for RTL languages.
-- Add `SGR` (Select Graphic Rendition) parsing to directly process ANSI escape sequences into attribute changes.
+- Add `SGR` (Select Graphic Rendition) parsing to process ANSI escape sequences directly.
 - Add alternate screen buffer support (used by fullscreen TUI apps like vim).
 
 ---
 
 ## Development Process
 
-This implementation was built using **TDD (Test-Driven Development)** in a bottom-up order:
+Built using **TDD (Test-Driven Development)** in a bottom-up order:
 
 1. Value objects (`CellAttributes`, `Cell`) — tested in isolation first
 2. `Row` — the storage primitive
@@ -176,4 +271,27 @@ This implementation was built using **TDD (Test-Driven Development)** in a botto
 11. Wide character support
 12. Resize
 
-We'll use Git Flow branching for feature development and pull requests for code review. Each commit is focused on a single behavior or refactor, with descriptive messages.
+Commits are signed with PGP. Branch strategy follows Git Flow —
+see [GOVERNANCE.md](GOVERNANCE.md) for details.
+
+---
+
+## Contributing
+
+Contributions, questions and feedback are welcome.
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+---
+
+## License
+
+This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for
+the full text.
+
+The choice of MIT reflects the academic nature of this project: maximum freedom
+to study, adapt, and reuse, with no restrictions on how you use it.
+
+[![REUSE Compliant](https://api.reuse.software/badge/github.com/igarbayo/terminal-text-buffer)](https://api.reuse.software/info/github.com/igarbayo/terminal-text-buffer)
+
+<!-- SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es> -->
+<!-- SPDX-License-Identifier: MIT -->
