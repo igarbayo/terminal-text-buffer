@@ -10,6 +10,43 @@ A terminal text buffer implementation in Java — the core data structure used b
 
 Requires Java 8+. No external libraries except JUnit 5 for testing.
 
+## Interactive REPL
+
+A command-line REPL is included to test the buffer manually:
+
+```bash
+./gradlew run --console=plain -q
+```
+
+Type `help` inside the REPL to list all commands, or see the table below:
+
+| Command | Description |
+|---|---|
+| `write <text>` | Write text at cursor position (overwrite) |
+| `insert <text>` | Insert text at cursor, shifting content right |
+| `fill [char]` | Fill current line with character (space if omitted) |
+| `newline` | Insert empty line at bottom, scroll top to scrollback |
+| `clear` | Clear screen and reset cursor to (0, 0) |
+| `clearall` | Clear screen, scrollback, and reset cursor |
+| `cursor <col> <row>` | Move cursor to position |
+| `move up\|down\|left\|right [n]` | Move cursor N steps (default 1) |
+| `fg <COLOR>` | Set foreground color |
+| `bg <COLOR>` | Set background color |
+| `bold` / `italic` / `underline` | Enable text style |
+| `nostyle <STYLE>` | Disable text style |
+| `reset` | Reset all attributes to default |
+| `resize <w> <h>` | Resize the buffer |
+| `print` | Repaint the buffer |
+| `scrollback` | Print scrollback history |
+| `info` | Show dimensions, cursor, and current attributes |
+| `codepoints <text>` | Show Unicode code points (debug) |
+| `exit` / `quit` | Exit the REPL |
+
+Colors: `DEFAULT RED GREEN YELLOW BLUE MAGENTA CYAN WHITE BLACK` and `BRIGHT_*` variants.
+
+See [docs/manual-testing-guide.md](docs/manual-testing-guide.md) for a full walkthrough
+of every feature and edge case, including expected output for each command.
+
 ---
 
 ## Architecture
@@ -139,4 +176,4 @@ This implementation was built using **TDD (Test-Driven Development)** in a botto
 11. Wide character support
 12. Resize
 
-We'all use Git Flow branching for feature development and pull requests for code review. Each commit is focused on a single behavior or refactor, with descriptive messages.
+We'll use Git Flow branching for feature development and pull requests for code review. Each commit is focused on a single behavior or refactor, with descriptive messages.

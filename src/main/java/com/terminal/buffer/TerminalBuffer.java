@@ -519,12 +519,11 @@ public class TerminalBuffer {
     }
 
     private static boolean isWideCodePoint(int cp) {
-        int type = Character.getType(cp);
-        // East Asian Wide / Fullwidth characters
-        return type == Character.OTHER_LETTER &&
-                ((cp >= 0x1100 && cp <= 0x115F)   // Hangul Jamo
+        // East Asian Wide / Fullwidth characters — ranges alone are sufficient,
+        // no need to filter by Unicode category type.
+        return (cp >= 0x1100 && cp <= 0x115F)   // Hangul Jamo
                 || (cp >= 0x2E80 && cp <= 0x303E)  // CJK Radicals
-                || (cp >= 0x3041 && cp <= 0x33FF)  // Japanese
+                || (cp >= 0x3041 && cp <= 0x33FF)  // Japanese (hiragana, katakana, CJK symbols)
                 || (cp >= 0x3400 && cp <= 0x4DBF)  // CJK Extension A
                 || (cp >= 0x4E00 && cp <= 0x9FFF)  // CJK Unified Ideographs
                 || (cp >= 0xA000 && cp <= 0xA4CF)  // Yi
@@ -535,7 +534,6 @@ public class TerminalBuffer {
                 || (cp >= 0xFF00 && cp <= 0xFF60)  // Fullwidth Forms
                 || (cp >= 0xFFE0 && cp <= 0xFFE6)  // Fullwidth Signs
                 || (cp >= 0x1F300 && cp <= 0x1F9FF) // Emoji
-                || (cp >= 0x20000 && cp <= 0x2A6DF) // CJK Extension B
-                );
+                || (cp >= 0x20000 && cp <= 0x2A6DF); // CJK Extension B
     }
 }
