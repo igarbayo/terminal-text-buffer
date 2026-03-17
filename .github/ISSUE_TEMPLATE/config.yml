@@ -9,3 +9,7 @@ contact_links:
     about: >
       Do NOT open a public issue for security vulnerabilities.
       Please follow the responsible disclosure process described in SECURITY.md.
+  - name: General question or usage help
+    url: https://github.com/igarbayo/terminal-text-buffer/issues/new?template=question.md
+    about: >
+      Ask a question about how to use the library or understand its behaviour.

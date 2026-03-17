@@ -3,9 +3,10 @@
 ## Academic project notice
 
 This is an academic project with no production deployment and no commercial use.
-It is not subject to the mandatory requirements of the EU Cyber Resilience Act
-(CRA). However, this project voluntarily adopts CRA-aligned security practices
-as a matter of good hygiene.
+Under the EU Cyber Resilience Act (CRA), non-commercial free and open-source
+software is exempt from the mandatory requirements that apply to commercial
+manufacturers. This project voluntarily adopts CRA-aligned security practices
+anyway — not because it is required, but because it is the right thing to do.
 
 ---
 
@@ -21,20 +22,45 @@ long-term support versions.
 
 ---
 
+## Known limitations
+
+These are known, accepted limitations — not bugs to report:
+
+- **Wide character rendering in Windows PowerShell / CMD:** PowerShell and CMD
+  replace CJK ideographs and many emoji with `?` before the characters reach
+  the JVM. The library handles wide characters correctly (verified by the
+  automated test suite), but interactive testing from those terminals is not
+  possible. Use IntelliJ's built-in terminal or Windows Terminal with
+  `chcp 65001`.
+
+- **Supplementary-plane emoji (U+1F300 and above):** `Cell` stores characters
+  as `char` (a UTF-16 code unit). Code points above U+FFFF are detected
+  correctly but stored with loss of the high surrogate. This is a known
+  trade-off documented in the README.
+
+- **No input validation at network or process boundaries:** This is an
+  in-process data structure library. It does not handle untrusted external
+  input and does not perform sanitization. Callers are responsible for
+  validating input before passing it to the buffer.
+
+- **Scrollback access is O(n):** Random access by index iterates the internal
+  `ArrayDeque`. This is a performance characteristic, not a security issue.
+
+---
+
 ## Scope
 
 ### In scope
 
 - Memory safety issues in buffer operations (e.g. `resize`, `insertText`)
 - Incorrect data isolation between screen and scrollback (e.g. mutation of
-  scrollback rows after push)
+  scrollback rows after they are pushed off-screen)
 - Logic errors that could cause data loss or silent corruption of buffer state
 
 ### Out of scope
 
-- Wide character rendering in Windows PowerShell / CMD (known OS-level
-  limitation, not a library bug — see README)
-- Performance issues that do not affect correctness
+- Wide character rendering in Windows PowerShell / CMD (see Known Limitations)
+- Performance issues that do not affect correctness or data safety
 - Theoretical vulnerabilities with no realistic attack vector given the
   library's use case (in-process data structure, no network, no I/O)
 
@@ -72,9 +98,13 @@ Send an email to **ignacio.garbayo@rai.usc.es** with:
 
 | Stage | Target time |
 |---|---|
-| Acknowledgement | 7 days |
-| Initial assessment | 30 days |
+| Acknowledgement | 72 hours |
+| Initial assessment | 14 days |
 | Fix or mitigation | Best-effort (academic project, no SLA) |
+
+These timelines are targets, not guarantees. This is a student project — exams
+and coursework take priority. If you do not hear back within 72 hours, a
+follow-up email is welcome.
 
 ---
 
@@ -87,7 +117,7 @@ This project follows **coordinated disclosure**:
 3. A fixed version is released.
 4. The vulnerability is disclosed publicly, with credit to the reporter if desired.
 
-Public disclosure should not happen before 90 days from the initial report,
+Public disclosure should not happen before **90 days** from the initial report,
 unless both parties agree otherwise.
 
 ---
