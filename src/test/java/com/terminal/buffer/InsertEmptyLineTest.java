@@ -17,6 +17,8 @@ class InsertEmptyLineTest {
         buf = new TerminalBuffer(5, 3, 100);
     }
 
+    // insertEmptyLine must shift all existing screen rows up by one, pushing the top row to scrollback,
+    // and place a blank row at the bottom.
     @Test
     void insertEmptyLineShiftsContentUp() {
         buf.setCursor(0, 0);
@@ -34,6 +36,7 @@ class InsertEmptyLineTest {
         assertEquals("", buf.getLine(2));
     }
 
+    // The row that was pushed off the top of the screen must appear as the most recent scrollback line.
     @Test
     void insertEmptyLinePushesTopRowToScrollback() {
         buf.setCursor(0, 0);
@@ -44,6 +47,7 @@ class InsertEmptyLineTest {
         assertEquals("Hello", buf.getLine(-1));
     }
 
+    // Each call to insertEmptyLine must increase the scrollback size by exactly one.
     @Test
     void scrollbackSizeIncrementsWithEachInsert() {
         for (int i = 0; i < 5; i++) {
@@ -52,6 +56,7 @@ class InsertEmptyLineTest {
         assertEquals(5, buf.getScrollbackSize());
     }
 
+    // When the scrollback is full, the oldest entry must be evicted to make room for the new one.
     @Test
     void scrollbackEvictsOldestWhenFull() {
         buf = new TerminalBuffer(5, 1, 3); // maxScrollback=3
@@ -74,6 +79,7 @@ class InsertEmptyLineTest {
         assertEquals("B", buf.getLine(-3));
     }
 
+    // When maxScrollback is 0, the evicted row must be silently discarded.
     @Test
     void insertEmptyLineWithZeroMaxScrollbackDiscardsRow() {
         buf = new TerminalBuffer(5, 2, 0);
@@ -83,6 +89,7 @@ class InsertEmptyLineTest {
         assertEquals(0, buf.getScrollbackSize());
     }
 
+    // The newly inserted bottom row must be blank (empty string after trimming).
     @Test
     void newBottomRowIsBlank() {
         buf.insertEmptyLine();

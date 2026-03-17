@@ -17,6 +17,7 @@ class FillLineTest {
         buf = new TerminalBuffer(5, 3, 100);
     }
 
+    // fillLine must overwrite every column of the cursor's row with the given character.
     @Test
     void fillLineFillesEntireCurrentRowWithChar() {
         buf.setCursor(2, 1); // cursor on row 1, col 2
@@ -26,6 +27,7 @@ class FillLineTest {
         }
     }
 
+    // fillLine must only affect the cursor's row; other rows must remain untouched.
     @Test
     void fillLineDoesNotAffectOtherRows() {
         buf.setCursor(0, 1);
@@ -34,6 +36,7 @@ class FillLineTest {
         assertEquals(' ', buf.getChar(0, 2), "row 2 must be untouched");
     }
 
+    // fillLine must stamp the current buffer attributes onto every cell it writes.
     @Test
     void fillLineUsesCurrentAttributes() {
         buf.setForeground(TerminalColor.CYAN);
@@ -42,6 +45,7 @@ class FillLineTest {
         assertEquals(TerminalColor.CYAN, buf.getAttributesAt(2, 0).getForeground());
     }
 
+    // fillLine must not move the cursor; its position must be the same before and after.
     @Test
     void fillLineLeavsCursorColumnUnchanged() {
         buf.setCursor(3, 0);
@@ -50,6 +54,7 @@ class FillLineTest {
         assertEquals(0, buf.getCursor().getRow());
     }
 
+    // fillLine with a space character is equivalent to clearing the entire row.
     @Test
     void fillLineWithSpaceClearsRow() {
         buf.setCursor(0, 0);

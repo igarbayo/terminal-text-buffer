@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CellTest {
 
+    // Cell.EMPTY must represent a space with default attributes and NORMAL type.
     @Test
     void emptyConstantHasSpaceAndDefaultAttributes() {
         assertEquals(' ', Cell.EMPTY.getCharacter());
@@ -16,6 +17,7 @@ class CellTest {
         assertEquals(Cell.CellType.NORMAL, Cell.EMPTY.getType());
     }
 
+    // The two-argument constructor must default to NORMAL type.
     @Test
     void twoArgConstructorDefaultsToNormalType() {
         Cell cell = new Cell('A', CellAttributes.DEFAULT);
@@ -25,6 +27,7 @@ class CellTest {
         assertFalse(cell.isPlaceholder());
     }
 
+    // A WIDE_LEFT cell must report isWide=true and isPlaceholder=false.
     @Test
     void wideCellIsWideAndNotPlaceholder() {
         Cell cell = new Cell('字', CellAttributes.DEFAULT, Cell.CellType.WIDE_LEFT);
@@ -32,6 +35,7 @@ class CellTest {
         assertFalse(cell.isPlaceholder());
     }
 
+    // A WIDE_RIGHT (placeholder) cell must report isPlaceholder=true and isWide=false.
     @Test
     void placeholderCellIsPlaceholderAndNotWide() {
         Cell cell = new Cell('\0', CellAttributes.DEFAULT, Cell.CellType.WIDE_RIGHT);
@@ -39,6 +43,7 @@ class CellTest {
         assertTrue(cell.isPlaceholder());
     }
 
+    // A NORMAL cell is neither wide nor a placeholder.
     @Test
     void normalCellIsNeitherWideNorPlaceholder() {
         Cell cell = new Cell('A', CellAttributes.DEFAULT, Cell.CellType.NORMAL);
@@ -46,6 +51,7 @@ class CellTest {
         assertFalse(cell.isPlaceholder());
     }
 
+    // Two cells with the same character, attributes and type must be equal (equals and hashCode).
     @Test
     void equalCellsAreEqual() {
         Cell a = new Cell('A', CellAttributes.DEFAULT);
@@ -54,6 +60,7 @@ class CellTest {
         assertEquals(a.hashCode(), b.hashCode());
     }
 
+    // Cells with different characters must not be equal.
     @Test
     void cellsWithDifferentCharsAreNotEqual() {
         Cell a = new Cell('A', CellAttributes.DEFAULT);
@@ -61,6 +68,7 @@ class CellTest {
         assertNotEquals(a, b);
     }
 
+    // Cells with the same character but different types must not be equal.
     @Test
     void cellsWithDifferentTypesAreNotEqual() {
         Cell a = new Cell('A', CellAttributes.DEFAULT, Cell.CellType.NORMAL);
@@ -68,6 +76,7 @@ class CellTest {
         assertNotEquals(a, b);
     }
 
+    // Cells with the same character but different attributes must not be equal.
     @Test
     void cellsWithDifferentAttributesAreNotEqual() {
         Cell a = new Cell('A', CellAttributes.DEFAULT);
@@ -75,6 +84,7 @@ class CellTest {
         assertNotEquals(a, b);
     }
 
+    // The cell must return exactly the attributes it was constructed with.
     @Test
     void cellStoresAttributes() {
         CellAttributes attrs = CellAttributes.DEFAULT.withForeground(TerminalColor.RED).withStyle(TextStyle.BOLD);

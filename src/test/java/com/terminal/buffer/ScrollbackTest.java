@@ -17,6 +17,7 @@ class ScrollbackTest {
         buf = new TerminalBuffer(5, 3, 100);
     }
 
+    // Row index -1 must address the most recently pushed scrollback line.
     @Test
     void getLineMinus1ReturnsMostRecentScrollbackLine() {
         buf.setCursor(0, 0);
@@ -25,6 +26,7 @@ class ScrollbackTest {
         assertEquals("First", buf.getLine(-1));
     }
 
+    // Scrollback is ordered newest-to-oldest: -1 is the newest, -2 is older, etc.
     @Test
     void scrollbackLinesOrderedOldestToNewest() {
         buf.setCursor(0, 0);
@@ -39,6 +41,7 @@ class ScrollbackTest {
         assertEquals("AAA", buf.getLine(-2));
     }
 
+    // getAllContent must return scrollback lines first, followed by screen lines, all separated by newlines.
     @Test
     void getAllContentReturnScrollbackThenScreen() {
         buf = new TerminalBuffer(3, 2, 100);
@@ -56,6 +59,7 @@ class ScrollbackTest {
         assertEquals("   ", lines[2]);
     }
 
+    // Accessing a scrollback row when the scrollback is empty, or a screen row >= height, must throw.
     @Test
     void getLineOutOfBoundsThrowsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class, () -> buf.getLine(-1),
@@ -64,6 +68,7 @@ class ScrollbackTest {
                 "should throw for row >= height");
     }
 
+    // clearScreen must not remove any scrollback lines.
     @Test
     void clearScreenDoesNotAffectScrollback() {
         buf.insertEmptyLine();
@@ -72,6 +77,7 @@ class ScrollbackTest {
         assertEquals(2, buf.getScrollbackSize());
     }
 
+    // clearAll must remove all scrollback lines and make negative row indices invalid again.
     @Test
     void clearAllResetsScrollbackToZero() {
         buf.insertEmptyLine();
@@ -81,6 +87,7 @@ class ScrollbackTest {
         assertThrows(IllegalArgumentException.class, () -> buf.getLine(-1));
     }
 
+    // Cell attributes written before the line was pushed to scrollback must be preserved there.
     @Test
     void scrollbackAttributesArePreserved() {
         buf.setForeground(TerminalColor.RED);

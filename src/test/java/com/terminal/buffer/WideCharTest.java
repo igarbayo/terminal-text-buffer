@@ -17,6 +17,8 @@ class WideCharTest {
         buf = new TerminalBuffer(8, 4, 100);
     }
 
+    // Writing a CJK character must place a WIDE_LEFT cell at the cursor column
+    // and a WIDE_RIGHT placeholder cell in the next column.
     @Test
     void writingCjkCharOccupiesTwoColumns() {
         buf.setCursor(0, 0);
@@ -27,6 +29,7 @@ class WideCharTest {
         assertEquals(Cell.CellType.WIDE_RIGHT, buf.getCell(1, 0).getType());
     }
 
+    // After writing a wide character, the cursor must advance by two columns.
     @Test
     void cursorAdvancesTwoAfterWideChar() {
         buf.setCursor(0, 0);
@@ -34,6 +37,7 @@ class WideCharTest {
         assertEquals(2, buf.getCursor().getCol());
     }
 
+    // getLine must treat a wide character as a single logical character (not two columns).
     @Test
     void getLineTreatsWideCharAsOneCharacter() {
         buf.setCursor(0, 0);
@@ -43,6 +47,8 @@ class WideCharTest {
         assertTrue(line.startsWith("字A"), "line should start with wide char then A, got: " + line);
     }
 
+    // A wide character that would start at the last column must not be written
+    // because there is no room for its right half; the column must remain empty.
     @Test
     void wideCharAtLastColumnIsTruncated() {
         // width=8; position wide char at col 7 (last) — no room for both halves
@@ -53,6 +59,8 @@ class WideCharTest {
         assertEquals(' ', buf.getChar(7, 0), "wide char at last col should not be written");
     }
 
+    // Writing a new character over the WIDE_LEFT cell of an existing wide character
+    // must also clear the corresponding WIDE_RIGHT placeholder.
     @Test
     void writingOverWideLeftClearsBothHalves() {
         buf.setCursor(0, 0);
@@ -65,6 +73,7 @@ class WideCharTest {
         assertEquals(Cell.CellType.NORMAL, buf.getCell(1, 0).getType());
     }
 
+    // Writing a new character over the WIDE_RIGHT placeholder must also clear the WIDE_LEFT cell.
     @Test
     void writingOverWideRightClearsBothHalves() {
         buf.setCursor(0, 0);
@@ -75,6 +84,7 @@ class WideCharTest {
         assertEquals('B', buf.getChar(1, 0));
     }
 
+    // Consecutive wide characters must each occupy two columns in sequence.
     @Test
     void multipleWideCharsWrittenSequentially() {
         buf.setCursor(0, 0);
@@ -86,6 +96,7 @@ class WideCharTest {
         assertEquals(4, buf.getCursor().getCol());
     }
 
+    // Narrow and wide characters can be mixed freely; the cursor advances by 1 or 2 accordingly.
     @Test
     void mixedNarrowAndWideChars() {
         buf.setCursor(0, 0);

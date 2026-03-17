@@ -18,6 +18,7 @@ public class TerminalBuffer {
 
     private int cursorCol;
     private int cursorRow;
+    // xterm-style deferred wrap once writing reaches the last column.
     private boolean pendingWrap;
 
     private CellAttributes currentAttributes;
@@ -60,6 +61,7 @@ public class TerminalBuffer {
     // -------------------------------------------------------------------------
 
     public void setAttributes(CellAttributes attributes) {
+        // Replaces the full active attribute state used by future writes.
         this.currentAttributes = attributes;
     }
 
@@ -96,12 +98,14 @@ public class TerminalBuffer {
     }
 
     public void setCursor(int col, int row) {
+        // Keep cursor always inside visible screen bounds.
         cursorCol = clampCol(col);
         cursorRow = clampRow(row);
         pendingWrap = false;
     }
 
     public void moveCursorRight(int n) {
+        // Relative movement is clamped instead of throwing on overflow.
         cursorCol = clampCol(cursorCol + n);
         pendingWrap = false;
     }
@@ -364,6 +368,7 @@ public class TerminalBuffer {
         width = newWidth;
         height = newHeight;
 
+        // Cursor may become out-of-bounds after resize, so clamp it again.
         cursorCol = clampCol(cursorCol);
         cursorRow = clampRow(cursorRow);
         pendingWrap = false;
@@ -382,6 +387,7 @@ public class TerminalBuffer {
     }
 
     private Row resolveRow(int row) {
+        // Non-negative rows address visible screen, negative rows address scrollback.
         if (row >= 0 && row < height) {
             return screen[row];
         }
@@ -405,6 +411,7 @@ public class TerminalBuffer {
 
     private void pushRowToScrollback(Row row) {
         if (maxScrollback == 0) return;
+        // Store a copy so later screen mutations do not affect history.
         scrollback.addLast(new Row(row));
         if (scrollback.size() > maxScrollback) {
             scrollback.removeFirst();
@@ -412,6 +419,7 @@ public class TerminalBuffer {
     }
 
     private void advanceCursorToNextLine() {
+        // At bottom edge, advance implies scroll-up by inserting an empty line.
         if (cursorRow < height - 1) {
             cursorRow++;
             cursorCol = 0;
@@ -492,6 +500,7 @@ public class TerminalBuffer {
         if (combined.length > available) {
             Cell[] overflow = Arrays.copyOfRange(combined, available, combined.length);
             if (hasActualContent(overflow)) {
+                // Recursively continue insertion on following rows.
                 int nextRow = row + 1;
                 if (nextRow >= height) {
                     insertEmptyLine();

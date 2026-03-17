@@ -8,17 +8,21 @@ import java.util.Set;
 
 public class Main {
 
+    // Main REPL demo buffer: 80x24 with up to 200 scrollback lines.
     private static TerminalBuffer buf = new TerminalBuffer(80, 24, 200);
 
     public static void main(String[] args) {
+        // Show help and the initial state before accepting commands.
         printHelp();
         printBuffer();
 
+        // Read commands line by line from stdin until EOF.
         try (Scanner scanner = new Scanner(System.in, "UTF-8")) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine().trim();
                 if (line.isEmpty()) continue;
 
+                // Repaint only when the command changes buffer contents.
                 boolean changed = handleCommand(line);
                 if (changed) printBuffer();
             }
@@ -26,11 +30,13 @@ public class Main {
     }
 
     private static boolean handleCommand(String line) {
+        // Split command and argument to keep parsing simple.
         String[] parts = line.split(" ", 2);
         String cmd = parts[0].toLowerCase();
         String arg = parts.length > 1 ? parts[1] : "";
 
         try {
+            // Main REPL command dispatcher.
             switch (cmd) {
                 case "write":
                     if (arg.isEmpty()) { err("write <texto>"); return false; }
@@ -181,6 +187,7 @@ public class Main {
             for (int col = 0; col < w; col++) {
                 Cell cell = buf.getCell(col, row);
                 CellAttributes attrs = cell.getAttributes();
+                // Emit ANSI attributes only when they change from the previous cell.
                 if (!attrs.equals(prev)) {
                     sb.append("\033[0m");
                     sb.append(ansiAttrs(attrs));
@@ -188,6 +195,7 @@ public class Main {
                 }
                 boolean isCursor = (col == cur.getCol() && row == cur.getRow());
                 char ch = cell.getCharacter();
+                // Highlight cursor position; use a visible block for blank cells.
                 if (isCursor) {
                     sb.append(ch == ' ' || ch == '\0' ? '\u258c' : ch);
                 } else {
@@ -227,6 +235,7 @@ public class Main {
 
     private static void printScrollback() {
         int size = buf.getScrollbackSize();
+        // Print scrollback history from oldest to newest.
         if (size == 0) {
             System.out.println("--- Scrollback vacio ---");
             System.out.print("> ");
@@ -249,6 +258,7 @@ public class Main {
     private static void printInfo() {
         CursorPosition cur = buf.getCursor();
         CellAttributes attrs = buf.getAttributes();
+        // Print a compact runtime snapshot of buffer, cursor, and active attributes.
         System.out.println("Dimensiones : " + buf.getWidth() + " x " + buf.getHeight());
         System.out.println("Scrollback  : " + buf.getScrollbackSize() + " / " + buf.getMaxScrollback() + " lineas");
         System.out.println("Cursor      : col=" + cur.getCol() + " row=" + cur.getRow());
@@ -265,6 +275,7 @@ public class Main {
     // -------------------------------------------------------------------------
 
     private static void printHelp() {
+        // Render static command reference shown at startup and on demand.
         System.out.println("╔══════════════════════════════════════════════════════╗");
         System.out.println("║          Terminal Text Buffer — REPL                 ║");
         System.out.println("╠══════════════════════════════════════════════════════╣");
@@ -306,12 +317,14 @@ public class Main {
     // -------------------------------------------------------------------------
 
     private static void err(String msg) {
+        // Keep error output and prompt behavior consistent across commands.
         System.out.println("  [!] " + msg);
         System.out.print("> ");
         System.out.flush();
     }
 
     private static String repeat(String s, int n) {
+        // Small utility to repeat border characters for frame rendering.
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < n; i++) sb.append(s);
         return sb.toString();
@@ -319,6 +332,7 @@ public class Main {
 
     private static String ansiAttrs(CellAttributes attrs) {
         StringBuilder sb = new StringBuilder();
+        // Build ANSI sequence by combining active styles and colors.
         if (attrs.hasStyle(TextStyle.BOLD))      sb.append("\033[1m");
         if (attrs.hasStyle(TextStyle.ITALIC))    sb.append("\033[3m");
         if (attrs.hasStyle(TextStyle.UNDERLINE)) sb.append("\033[4m");
@@ -330,6 +344,7 @@ public class Main {
     }
 
     private static String ansiColor(TerminalColor color, boolean background) {
+        // Map terminal color enum values to ANSI SGR foreground/background codes.
         int base = background ? 40 : 30;
         switch (color) {
             case BLACK:          return "\033[" + base + "m";

@@ -17,6 +17,7 @@ class ContentAccessTest {
         buf = new TerminalBuffer(5, 3, 100);
     }
 
+    // getLine must strip trailing spaces so callers receive a clean string.
     @Test
     void getLineTrimmsTrailingSpaces() {
         buf.setCursor(0, 0);
@@ -24,11 +25,13 @@ class ContentAccessTest {
         assertEquals("Hi", buf.getLine(0));
     }
 
+    // getLine on a blank row must return an empty string (all spaces trimmed).
     @Test
     void getLineReturnsEmptyStringForBlankLine() {
         assertEquals("", buf.getLine(0));
     }
 
+    // getRawLine must return the full fixed-width content including trailing spaces.
     @Test
     void getRawLineReturnsFixedWidth() {
         buf.setCursor(0, 0);
@@ -36,6 +39,7 @@ class ContentAccessTest {
         assertEquals("Hi   ", buf.getRawLine(0)); // padded to width=5
     }
 
+    // getLine with a negative index must address the scrollback (row -1 = most recent).
     @Test
     void getLineScrollbackRow() {
         buf.setCursor(0, 0);
@@ -44,16 +48,19 @@ class ContentAccessTest {
         assertEquals("ABCDE", buf.getLine(-1));
     }
 
+    // getLine with a screen row index >= height must throw IllegalArgumentException.
     @Test
     void getLineOutOfRangePositiveThrows() {
         assertThrows(IllegalArgumentException.class, () -> buf.getLine(3));
     }
 
+    // getLine with a negative index when the scrollback is empty must throw IllegalArgumentException.
     @Test
     void getLineOutOfRangeNegativeThrows() {
         assertThrows(IllegalArgumentException.class, () -> buf.getLine(-1));
     }
 
+    // getScreenContent must contain exactly height-1 newline characters.
     @Test
     void getScreenContentHasHeightMinusOneNewlines() {
         String content = buf.getScreenContent();
@@ -61,6 +68,7 @@ class ContentAccessTest {
         assertEquals(buf.getHeight() - 1, newlines);
     }
 
+    // getAllContent must contain scrollback lines followed by screen lines separated by newlines.
     @Test
     void getAllContentHasScrollbackPlusScreenLines() {
         buf.insertEmptyLine();
@@ -71,6 +79,7 @@ class ContentAccessTest {
         assertEquals(buf.getScrollbackSize() + buf.getHeight() - 1, newlines);
     }
 
+    // getChar must be able to read a character from a scrollback row using a negative index.
     @Test
     void getCharOnScrollbackRow() {
         buf.setForeground(TerminalColor.RED);
@@ -80,6 +89,7 @@ class ContentAccessTest {
         assertEquals('X', buf.getChar(2, -1));
     }
 
+    // getAttributesAt must be able to read attributes from a scrollback row using a negative index.
     @Test
     void getAttributesAtOnScrollbackRow() {
         buf.setForeground(TerminalColor.BLUE);
@@ -89,6 +99,7 @@ class ContentAccessTest {
         assertEquals(TerminalColor.BLUE, buf.getAttributesAt(1, -1).getForeground());
     }
 
+    // getLine on a scrollback row must also trim trailing spaces.
     @Test
     void getLineScrollbackWithTrimming() {
         buf.setCursor(0, 0);
