@@ -14,6 +14,11 @@ Copyright: 2026 Ignacio Garbayo Fernandez <ignacio.garbayo@rai.usc.es>
 License: MIT
 
 # Documentation — authored by the project maintainer
-Files: README.md docs/manual-testing-guide.md
+Files: README.md docs/manual-testing-guide.md docs/COMPONENTS_LICENSE.md docs/GPG_KEY.md docs/ARCHITECTURE_DECISIONS.md
 Copyright: 2026 Ignacio Garbayo Fernandez <ignacio.garbayo@rai.usc.es>
+License: MIT
+
+# Root governance files — authored by the project maintainer
+Files: DCO
+Copyright: The Linux Foundation and its contributors
 License: MIT
