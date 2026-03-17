@@ -127,7 +127,104 @@ Colors: `DEFAULT RED GREEN YELLOW BLUE MAGENTA CYAN WHITE BLACK` and `BRIGHT_*` 
 
 ---
 
+## Compatibility
+
+Tested on every combination in CI:
+
+| Java version | Ubuntu | Windows |
+|---|---|---|
+| 11 | Passing | Passing |
+| 17 | Passing | Passing |
+| 21 | Passing | Passing |
+
+Wide character support (CJK + emoji) is verified by the automated test suite on
+all platforms. Interactive display of wide characters requires a Unicode-aware
+terminal — see [Known Limitations](#known-limitations).
+
+---
+
+## Troubleshooting
+
+### `Could not find tools.jar` on Windows
+
+Gradle is picking up a JRE instead of a JDK. Set `org.gradle.java.home` in
+`gradle.properties` to point to a JDK directory (the one that contains `bin/javac`):
+
+```properties
+org.gradle.java.home=C:\\Program Files\\Java\\jdk1.8.0_261
+```
+
+Or set `JAVA_HOME` in your terminal before running Gradle:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk1.8.0_261"
+./gradlew test
+```
+
+### Wide characters display as `?` in Windows PowerShell / CMD
+
+PowerShell and CMD do not forward CJK ideographs or many emoji to the JVM — they
+replace them with `?` before the Java process ever receives the input. This is an
+OS-level limitation. The library itself handles wide characters correctly (verified
+by the automated test suite). To test interactively, use:
+
+- **IntelliJ IDEA's built-in terminal**
+- **Windows Terminal** with `chcp 65001` (UTF-8 code page)
+
+### Build succeeds but tests are reported as `UP-TO-DATE` without running
+
+Gradle cached the last run. Force a fresh run with:
+
+```bash
+./gradlew cleanTest test
+```
+
+### `UnsupportedClassVersionError` at runtime
+
+The class was compiled with a newer JDK than the one running it. Make sure the
+JDK used to build (`JAVA_HOME`) and the JDK used to run are the same version, or
+at least that the runtime is at least Java 8.
+
+---
+
 ## Architecture & Design
+
+```
+                    ┌────────────────────────────────────────────────┐
+                    │              TerminalBuffer (public API)         │
+                    │                                                  │
+                    │  cursor: CursorPosition                          │
+                    │  attrs:  CellAttributes  (fg, bg, styles)        │
+                    │                                                  │
+                    │  ┌──────────────────────┐  ┌──────────────────┐ │
+                    │  │      Screen          │  │    Scrollback    │ │
+                    │  │  Row[height]         │  │  ArrayDeque<Row> │ │
+                    │  │  (mutable, editable) │  │  (read-only;     │ │
+                    │  │                      │  │   max size cap)  │ │
+                    │  │  row 0 = top line    │  │  -1 = newest     │ │
+                    │  │  row h-1 = bottom    │  │  -n = oldest     │ │
+                    │  └──────────────────────┘  └──────────────────┘ │
+                    │           │                          │            │
+                    │           └──────────┬───────────────┘            │
+                    │                      │                            │
+                    │               Row  ──┤ Cell[]  (fixed width)      │
+                    │                      │                            │
+                    │               Cell ──┤ char + CellAttributes      │
+                    │                      │ + CellType                 │
+                    │                      │ (NORMAL/WIDE_LEFT/         │
+                    │                      │  WIDE_RIGHT)               │
+                    └──────────────────────┴────────────────────────────┘
+
+  CellAttributes = TerminalColor (fg) + TerminalColor (bg) + EnumSet<TextStyle>
+  TerminalColor  = DEFAULT | BLACK | RED | GREEN | YELLOW | BLUE |
+                   MAGENTA | CYAN | WHITE | BRIGHT_* variants (17 total)
+  TextStyle      = BOLD | ITALIC | UNDERLINE
+```
+
+When `insertEmptyLine()` is called (or the cursor reaches the bottom), the top
+screen row is snapshotted (copy-constructor) and pushed to the back of the
+scrollback deque. If the deque is at capacity the oldest entry is evicted from
+the front.
 
 ### Class Overview
 

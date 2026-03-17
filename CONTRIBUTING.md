@@ -1,8 +1,9 @@
 # Contributing to Terminal Text Buffer
 
-First of all — thank you for taking the time to read this and for your interest
-in the project. Whether you are here out of curiosity, to report a bug, or to
-propose a change, it genuinely means a lot.
+Thank you so much for taking the time to read this. It genuinely means a lot.
+Terminal Text Buffer is a small project born from a Jetbrains coding challenge,
+and the fact that you are here considering contributing to it is something we do
+not take for granted.
 
 ---
 
@@ -57,33 +58,73 @@ Open an issue using the **Feature Request** template. Describe:
 
 ## How to contribute code
 
-### 1. Fork and set up
+### 1. Set up your development environment
+
+**Prerequisites:**
+
+- **JDK 11 or later.** Make sure `java -version` and `javac -version` both
+  report the same JDK (not a JRE).
+- **Git** (any recent version).
+- No other tools required — the Gradle wrapper (`gradlew`) is bundled.
+
+**Steps:**
 
 ```bash
-git clone https://github.com/igarbayo/terminal-text-buffer.git
+# 1. Fork the repository on GitHub, then clone your fork
+git clone https://github.com/<your-username>/terminal-text-buffer.git
 cd terminal-text-buffer
-./gradlew test   # make sure everything passes before you start
+
+# 2. Verify the build passes before making any changes
+./gradlew test
+
+# The HTML test report is at build/reports/tests/test/index.html
 ```
+
+> **Windows note:** if Gradle complains about `tools.jar`, set
+> `org.gradle.java.home` in `gradle.properties` to your JDK directory
+> (not a JRE). See [README — Troubleshooting](README.md#troubleshooting).
 
 ### 2. Create a feature branch from `develop`
 
 ```bash
 git checkout develop
-git checkout -b feature/your-feature-name
+git checkout -b feature/your-descriptive-name
 ```
 
 Never branch from `master`. Never commit directly to `master` or `develop`.
 
 ### 3. Write your code
 
-- Follow the existing code style (no formatter config yet, just be consistent).
-- Write tests first if possible — this project was built with TDD.
-- Add SPDX headers to any new file you create:
+#### Code style
+
+This project uses the **Allman brace style** with **4-space indentation**
+(no tabs).
+
+```java
+// Allman style — opening brace on its own line
+if (condition)
+{
+    doSomething();
+}
+else
+{
+    doSomethingElse();
+}
+```
+
+- Keep lines under 120 characters where possible.
+- Prefer `final` for local variables and parameters that are not reassigned.
+- Write tests first (this project was built with TDD — see the development
+  process in the README).
+- Add SPDX license headers to any new source file you create:
 
 ```java
 // SPDX-FileCopyrightText: <YEAR> <Your Name> <your@email.com>
 // SPDX-License-Identifier: MIT
 ```
+
+For non-source files (Markdown, YAML, etc.) use an HTML or `#`-style comment
+as appropriate, or create a `.license` sidecar file.
 
 ### 4. Commit with Conventional Commits
 
@@ -91,7 +132,11 @@ All commit messages must follow the
 [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 ```
-<type>: <short description in present tense, lowercase>
+<type>(<optional scope>): <short description in present tense, lowercase>
+
+<optional body — explain why, not what>
+
+<optional footer — issue references, BREAKING CHANGE>
 ```
 
 Valid types:
@@ -100,10 +145,14 @@ Valid types:
 |---|---|
 | `feat` | A new feature or behaviour |
 | `fix` | A bug fix |
+| `refactor` | Code change with no feature or fix |
+| `perf` | Performance improvement (special case of `refactor`) |
+| `style` | Whitespace, formatting — no behaviour change |
 | `test` | Adding or fixing tests |
 | `docs` | Documentation only |
-| `refactor` | Code change with no feature or fix |
-| `chore` | Tooling, dependencies, build |
+| `build` | Build tools, dependencies, project version |
+| `ops` | CI/CD, infrastructure, deployment scripts |
+| `chore` | Initial commit, `.gitignore`, other housekeeping |
 
 **Examples:**
 
@@ -112,6 +161,7 @@ feat: add SGR escape sequence parser
 fix: correct cursor clamping when width is 1
 test: add scrollback eviction edge case
 docs: clarify wide character limitations in README
+perf: replace ArrayDeque with circular buffer for O(1) scrollback access
 chore: bump JUnit to 5.11.0
 ```
 
@@ -129,6 +179,19 @@ instead of -1.
 - Fill in the PR template completely.
 - The PR title must itself be a valid Conventional Commit message.
 - CI must be green (build + tests + REUSE compliance).
+- At least one maintainer approval is required before merging.
+
+---
+
+## Definition of done
+
+A contribution is considered complete when all of the following are true:
+
+- [ ] `./gradlew test` passes locally with no failures or errors
+- [ ] New or changed source files have SPDX license headers
+- [ ] New public behaviour is covered by at least one test
+- [ ] Documentation is updated if the change affects behaviour or the API
+- [ ] The PR title and all commit messages follow the Conventional Commits format
 
 ---
 
@@ -136,7 +199,8 @@ instead of -1.
 
 The maintainer signs all commits with a PGP key. You are not required to sign
 your commits, but it is encouraged. If you do, please include your public key
-fingerprint in the PR description.
+fingerprint in the PR description. See [docs/GPG_KEY.md](docs/GPG_KEY.md) for
+setup instructions.
 
 ---
 
