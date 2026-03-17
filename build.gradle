@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es>
+// SPDX-License-Identifier: MIT
+
 plugins {
     id 'java'
     id 'application'

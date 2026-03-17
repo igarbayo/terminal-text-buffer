@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es>
+# SPDX-License-Identifier: MIT
+
+blank_issues_enabled: false
+
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/igarbayo/terminal-text-buffer/blob/master/SECURITY.md
+    about: >
+      Do NOT open a public issue for security vulnerabilities.
+      Please follow the responsible disclosure process described in SECURITY.md.

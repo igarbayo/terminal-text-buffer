@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es>
+// SPDX-License-Identifier: MIT
+
 package com.terminal.buffer;
 
 import java.util.Collections;
