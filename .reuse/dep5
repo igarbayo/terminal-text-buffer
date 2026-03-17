@@ -13,8 +13,8 @@ Files: gradle.properties .gitignore settings.gradle
 Copyright: 2026 Ignacio Garbayo Fernandez <ignacio.garbayo@rai.usc.es>
 License: MIT
 
-# Documentation — authored by the project maintainer
-Files: README.md docs/manual-testing-guide.md docs/COMPONENTS_LICENSE.md docs/GPG_KEY.md docs/ARCHITECTURE_DECISIONS.md
+# Documentation and governance files — authored by the project maintainer
+Files: README.md CODE_OF_CONDUCT.md GOVERNANCE.md SECURITY.md docs/manual-testing-guide.md docs/COMPONENTS_LICENSE.md docs/GPG_KEY.md docs/ARCHITECTURE_DECISIONS.md
 Copyright: 2026 Ignacio Garbayo Fernandez <ignacio.garbayo@rai.usc.es>
 License: MIT
 
