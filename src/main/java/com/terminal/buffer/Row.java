@@ -49,7 +49,7 @@ final class Row {
         StringBuilder sb = new StringBuilder(cells.length);
         for (Cell cell : cells) {
             if (!cell.isPlaceholder()) {
-                sb.append(cell.getCharacter());
+                sb.appendCodePoint(cell.getCodePoint());
             }
         }
         return sb.toString();

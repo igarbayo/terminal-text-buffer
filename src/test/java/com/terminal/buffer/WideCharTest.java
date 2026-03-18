@@ -107,4 +107,20 @@ class WideCharTest {
         assertEquals('B', buf.getChar(3, 0));
         assertEquals(4, buf.getCursor().getCol());
     }
+
+    // Supplementary-plane emoji (U+1F600, encoded as a surrogate pair in Java String) must be
+    // written as a wide glyph occupying 2 columns, with the full codepoint preserved in the cell.
+    @Test
+    void supplementaryPlaneEmojiIsStoredAsWideGlyph() {
+        String emoji = "\uD83D\uDE00"; // 😀 U+1F600 as surrogate pair
+        buf.setCursor(0, 0);
+        buf.writeText(emoji);
+
+        Cell left = buf.getCell(0, 0);
+        assertEquals(Cell.CellType.WIDE_LEFT, left.getType());
+        assertEquals(0x1F600, left.getCodePoint());   // full codepoint, not truncated
+        assertEquals(Cell.CellType.WIDE_RIGHT, buf.getCell(1, 0).getType());
+        assertEquals(2, buf.getCursor().getCol());
+        assertEquals(emoji, buf.getLine(0));
+    }
 }

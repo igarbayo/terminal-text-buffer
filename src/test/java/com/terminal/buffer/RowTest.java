@@ -63,8 +63,8 @@ class RowTest {
 
         copy.setCell(1, new Cell('B', CellAttributes.DEFAULT));
 
-        assertEquals('A', original.getCell(1).getCharacter(), "mutation of copy must not affect original");
-        assertEquals('B', copy.getCell(1).getCharacter());
+        assertEquals('A', original.getCell(1).getCodePoint(), "mutation of copy must not affect original");
+        assertEquals('B', copy.getCell(1).getCodePoint());
     }
 
     // toContentString must concatenate the character of every cell, including empty (space) cells.

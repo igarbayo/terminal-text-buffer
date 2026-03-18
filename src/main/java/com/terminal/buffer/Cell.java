@@ -16,24 +16,24 @@ public final class Cell {
     // A shared immutable empty cell instance to avoid unnecessary allocations for blank spaces
     public static final Cell EMPTY = new Cell(' ', CellAttributes.DEFAULT, CellType.NORMAL);
 
-    private final char character;
+    private final int codePoint;
     private final CellAttributes attributes;
     private final CellType type;
 
     // Constructors
-    public Cell(char character, CellAttributes attributes) {
-        this(character, attributes, CellType.NORMAL);
+    public Cell(int codePoint, CellAttributes attributes) {
+        this(codePoint, attributes, CellType.NORMAL);
     }
 
-    public Cell(char character, CellAttributes attributes, CellType type) {
-        this.character = character;
+    public Cell(int codePoint, CellAttributes attributes, CellType type) {
+        this.codePoint = codePoint;
         this.attributes = attributes;
         this.type = type;
     }
 
     // Getters
-    public char getCharacter() {
-        return character;
+    public int getCodePoint() {
+        return codePoint;
     }
 
     public CellAttributes getAttributes() {
@@ -61,19 +61,19 @@ public final class Cell {
         if (this == o) return true;
         if (!(o instanceof Cell)) return false;
         Cell cell = (Cell) o;
-        return character == cell.character &&
+        return codePoint == cell.codePoint &&
                 type == cell.type &&
                 Objects.equals(attributes, cell.attributes);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(character, attributes, type);
+        return Objects.hash(codePoint, attributes, type);
     }
 
     // For debugging purposes, we provide a string representation of the cell that includes its character, attributes, and type
     @Override
     public String toString() {
-        return "Cell{'" + character + "', " + attributes + ", " + type + "}";
+        return "Cell{'" + new String(Character.toChars(codePoint)) + "', " + attributes + ", " + type + "}";
     }
 }

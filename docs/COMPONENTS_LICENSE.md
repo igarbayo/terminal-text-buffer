@@ -1,7 +1,7 @@
 # Components and Licensing
 
-This document explains why this project uses the MIT License, what licences
-its dependencies carry, and whether all of those licences are compatible with
+This document explains why this project uses the MIT License, what licenses
+its dependencies carry, and whether all of those licenses are compatible with
 each other. The goal is to let any reader — developer, legal team, or curious
 student — understand the full licensing picture at a glance.
 
@@ -25,12 +25,12 @@ MIT was chosen because:
    product. There is no business reason to restrict use.
 
 3. **Compatibility.** MIT is compatible with virtually every other open-source
-   licence, including Apache-2.0 (used by the Gradle wrapper) and EPL-2.0
-   (used by JUnit 5). A more restrictive licence (GPL, AGPL) would create
+   license, including Apache-2.0 (used by the Gradle wrapper) and EPL-2.0
+   (used by JUnit 5). A more restrictive license (GPL, AGPL) would create
    compatibility problems for anyone wanting to link this library into a
    larger project.
 
-4. **No-warranty clause.** Like all OSI-approved licences, MIT explicitly
+4. **No-warranty clause.** Like all OSI-approved licenses, MIT explicitly
    disclaims warranties. This is standard practice for open-source software.
 
 ### What MIT allows and requires
@@ -39,7 +39,7 @@ Anyone who receives this software may use, copy, modify, merge, publish,
 distribute, sublicense, and/or sell copies — for any purpose, including
 commercial — as long as they:
 
-- Include the original copyright notice and the MIT licence text in any
+- Include the original copyright notice and the MIT license text in any
   substantial copy or distribution of the software.
 
 That is the only obligation. There is no copyleft requirement, no
@@ -47,7 +47,7 @@ network-use clause, and no patent retaliation clause.
 
 ---
 
-## Dependency licence audit
+## Dependency license audit
 
 ### Runtime dependencies
 
@@ -57,22 +57,22 @@ redistributed by this project).
 
 ### Test dependencies
 
-| Dependency | Version | Licence (SPDX) | Compatibility with MIT |
+| Dependency | Version | license (SPDX) | Compatibility with MIT |
 |---|---|---|---|
-| JUnit Jupiter (JUnit 5) | 5.x | `EPL-2.0` | Compatible — EPL-2.0 is a weak copyleft licence. It requires that modifications to EPL-licensed files be shared back under EPL, but it does not "infect" MIT-licensed code that merely calls JUnit as a test framework. JUnit is used only during testing and is never bundled into the distributed artefact. |
+| JUnit Jupiter (JUnit 5) | 5.x | `EPL-2.0` | Compatible — EPL-2.0 is a weak copyleft license. It requires that modifications to EPL-licensed files be shared back under EPL, but it does not "infect" MIT-licensed code that merely calls JUnit as a test framework. JUnit is used only during testing and is never bundled into the distributed artefact. |
 
 ### Build tool
 
-| Component | Licence (SPDX) | Notes |
+| Component | license (SPDX) | Notes |
 |---|---|---|
-| Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) | `Apache-2.0` | Included in the repository as a convenience. Apache-2.0 is a permissive licence fully compatible with MIT. REUSE metadata for these files is in [.reuse/dep5](../.reuse/dep5). |
+| Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) | `Apache-2.0` | Included in the repository as a convenience. Apache-2.0 is a permissive license fully compatible with MIT. REUSE metadata for these files is in [.reuse/dep5](../.reuse/dep5). |
 
 ---
 
 ## REUSE compliance
 
 This project follows the [REUSE Specification](https://reuse.software/)
-version 3.3. Every file in the repository has a corresponding licence
+version 3.3. Every file in the repository has a corresponding license
 declaration, either through:
 
 - An **SPDX header comment** in the file itself (all source and documentation
@@ -80,7 +80,7 @@ declaration, either through:
 - The [.reuse/dep5](../.reuse/dep5) file (third-party files that cannot be
   modified, such as the Gradle wrapper).
 
-Licence texts for every SPDX identifier used in this project are stored in
+license texts for every SPDX identifier used in this project are stored in
 the [LICENSES/](../LICENSES/) directory:
 
 | File | SPDX identifier |

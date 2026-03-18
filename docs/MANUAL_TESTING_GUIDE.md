@@ -6,7 +6,7 @@ This guide covers how to run the interactive REPL and test every feature of
 ## Starting the REPL
 
 ```bash
-./gradlew run --console=plain -q
+./gradlew run
 ```
 
 The REPL starts with an 80×24 buffer and 200-line scrollback. Type `help` at any
@@ -22,13 +22,13 @@ point to list all available commands.
 ## 1. Basic `writeText`
 
 ```
-write Hola mundo
+write Hello world
 ```
-Expected: text appears at row 0 col 0; cursor moves to (10, 0).
+Expected: text appears at row 0 col 0; cursor moves to (11, 0).
 
 ```
 cursor 5 2
-write Texto centrado
+write Centered text
 ```
 Expected: text starts at col 5 row 2.
 
@@ -50,14 +50,14 @@ Cursor stays at the position after the last written character.
 clear
 fg RED
 bold
-write Texto rojo negrita
+write Red bold text
 cursor 0 1
 fg BLUE
 italic
-write Texto azul cursiva
+write Blue italic text
 reset
 cursor 0 2
-write Texto normal
+write Normal text
 ```
 Expected: row 0 in red+bold, row 1 in blue+italic, row 2 in default style.
 
@@ -121,15 +121,15 @@ Expected: row 5 filled with spaces (clears it).
 ```
 clear
 cursor 0 0
-write Linea 1
+write Line 1
 newline
-write Linea 2
+write Line 2
 newline
-write Linea 3
+write Line 3
 scrollback
 ```
 Expected: after each `newline`, the top row scrolls into scrollback.
-`scrollback` shows `[-2] Linea 1` and `[-1] Linea 2` (Linea 3 is still on screen).
+`scrollback` shows `[-2] Line 1` and `[-1] Line 2` (Line 3 is still on screen).
 
 ### Fill scrollback
 
@@ -212,7 +212,7 @@ Expected: `U+65E5`, `U+672C`, `U+8A9E` — all detected as `isWide=true`.
 
 ```
 clear
-write Texto que puede quedar cortado
+write Text that may get truncated here
 resize 20 5
 print
 ```
@@ -232,13 +232,13 @@ Restores original dimensions. Previous scrollback entries are still accessible.
 ```
 clearall
 cursor 0 0
-write Primera linea
+write First line
 newline
-write Segunda linea
+write Second line
 newline
 scrollback
 ```
-Expected: `[-2] Primera linea`, `[-1] Segunda linea`.
+Expected: `[-2] First line`, `[-1] Second line`.
 
 ```
 clear
@@ -251,7 +251,7 @@ touch scrollback.
 clearall
 scrollback
 ```
-Expected: `--- Scrollback vacio ---` — `clearall` wipes everything including scrollback.
+Expected: `--- Scrollback empty ---` — `clearall` wipes everything including scrollback.
 
 ---
 
@@ -266,10 +266,10 @@ bold
 write === Terminal Buffer Demo ===
 reset
 cursor 0 2
-write Linea normal
+write Normal line
 cursor 0 3
 fg YELLOW
-write Linea amarilla
+write Yellow line
 reset
 cursor 0 4
 fill -
@@ -278,7 +278,7 @@ newline
 newline
 scrollback
 cursor 0 0
-insert INSERCION AL PRINCIPIO
+insert INSERTED AT THE START
 resize 40 10
 print
 resize 80 24
