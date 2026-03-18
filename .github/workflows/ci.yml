@@ -52,4 +52,4 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Check REUSE compliance
-        uses: fsfe/reuse-action@v4 # TODO: pin to SHA
+        uses: fsfe/reuse-action@v6 # TODO: pin to SHA
