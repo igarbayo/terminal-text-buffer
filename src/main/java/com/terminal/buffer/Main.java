@@ -38,36 +38,43 @@ public class Main {
         try {
             // Main REPL command dispatcher.
             switch (cmd) {
+                // Overwrite text at the current cursor position, advancing it.
                 case "write":
-                    if (arg.isEmpty()) { err("write <texto>"); return false; }
+                    if (arg.isEmpty()) { err("write <text>"); return false; }
                     buf.writeText(arg);
                     return true;
 
+                // Insert text at the cursor, pushing existing content to the right.
                 case "insert":
-                    if (arg.isEmpty()) { err("insert <texto>"); return false; }
+                    if (arg.isEmpty()) { err("insert <text>"); return false; }
                     buf.insertText(arg);
                     return true;
 
+                // Fill the current line with a repeated character (default: space).
                 case "fill": {
                     char ch = arg.isEmpty() ? ' ' : arg.charAt(0);
                     buf.fillLine(ch);
                     return true;
                 }
 
+                // Scroll the top screen row into scrollback and add a blank line at the bottom.
                 case "newline":
                     buf.insertEmptyLine();
                     return true;
 
+                // Blank every cell on screen and place the cursor at (0, 0).
                 case "clear":
                     buf.clearScreen();
                     buf.setCursor(0, 0);
                     return true;
 
+                // Blank screen and discard the entire scrollback history.
                 case "clearall":
                     buf.clearAll();
                     buf.setCursor(0, 0);
                     return true;
 
+                // Move cursor to an absolute (col, row) position.
                 case "cursor": {
                     String[] xy = arg.split(" ");
                     if (xy.length < 2) { err("cursor <col> <row>"); return false; }
@@ -75,6 +82,7 @@ public class Main {
                     return true;
                 }
 
+                // Move the cursor N steps in a cardinal direction (default N = 1).
                 case "move": {
                     String[] mv = arg.split(" ");
                     String dir = mv[0].toLowerCase();
@@ -89,16 +97,19 @@ public class Main {
                     return true;
                 }
 
+                // Change the foreground (text) color for subsequent writes.
                 case "fg":
                     if (arg.isEmpty()) { err("fg <COLOR>"); return false; }
                     buf.setForeground(TerminalColor.valueOf(arg.toUpperCase()));
                     return true;
 
+                // Change the background color for subsequent writes.
                 case "bg":
                     if (arg.isEmpty()) { err("bg <COLOR>"); return false; }
                     buf.setBackground(TerminalColor.valueOf(arg.toUpperCase()));
                     return true;
 
+                // Enable individual text style flags.
                 case "bold":
                     buf.addStyle(TextStyle.BOLD);
                     return true;
@@ -111,15 +122,18 @@ public class Main {
                     buf.addStyle(TextStyle.UNDERLINE);
                     return true;
 
+                // Remove a single style flag while leaving others intact.
                 case "nostyle":
                     if (arg.isEmpty()) { err("nostyle BOLD|ITALIC|UNDERLINE"); return false; }
                     buf.removeStyle(TextStyle.valueOf(arg.toUpperCase()));
                     return true;
 
+                // Reset fg, bg, and all style flags back to their defaults.
                 case "reset":
                     buf.resetAttributes();
                     return true;
 
+                // Resize the screen; content is preserved where possible.
                 case "resize": {
                     String[] wh = arg.split(" ");
                     if (wh.length < 2) { err("resize <w> <h>"); return false; }
@@ -127,19 +141,23 @@ public class Main {
                     return true;
                 }
 
+                // Force a repaint without changing buffer contents.
                 case "print":
                     return true;
 
+                // Dump the scrollback history to stdout (does not repaint).
                 case "scrollback":
                     printScrollback();
                     return false;
 
+                // Print a compact snapshot of dimensions, cursor, and active attributes.
                 case "info":
                     printInfo();
                     return false;
 
+                // Show each Unicode codepoint in the given string — useful for debugging wide chars.
                 case "codepoints":
-                    if (arg.isEmpty()) { err("codepoints <texto>"); return false; }
+                    if (arg.isEmpty()) { err("codepoints <text>"); return false; }
                     for (int i = 0; i < arg.length(); ) {
                         int cp = arg.codePointAt(i);
                         System.out.printf("  U+%04X  isWide=%-5b  char=%s%n",
@@ -150,18 +168,20 @@ public class Main {
                     System.out.flush();
                     return false;
 
+                // Reprint the command reference table.
                 case "help":
                     printHelp();
                     return false;
 
+                // Terminate the REPL process.
                 case "exit":
                 case "quit":
-                    System.out.println("Hasta luego.");
+                    System.out.println("Goodbye.");
                     System.exit(0);
                     return false;
 
                 default:
-                    err("Comando desconocido: '" + cmd + "'. Escribe 'help' para ver los comandos.");
+                    err("Unknown command: '" + cmd + "'. Type 'help' to see available commands.");
                     return false;
             }
         } catch (IllegalArgumentException e) {
@@ -176,6 +196,7 @@ public class Main {
 
     private static void printBuffer() {
         int w = buf.getWidth();
+        // Build box-drawing borders sized to the current buffer width.
         String top    = "\u250c" + repeat("\u2500", w) + "\u2510";
         String bottom = "\u2514" + repeat("\u2500", w) + "\u2518";
 
@@ -194,26 +215,29 @@ public class Main {
                     prev = attrs;
                 }
                 boolean isCursor = (col == cur.getCol() && row == cur.getRow());
-                char ch = cell.getCharacter();
+                int ch = cell.getCodePoint();
                 // Highlight cursor position; use a visible block for blank cells.
                 if (isCursor) {
-                    sb.append(ch == ' ' || ch == '\0' ? '\u258c' : ch);
+                    sb.appendCodePoint(ch == ' ' || ch == 0 ? '\u258c' : ch);
                 } else {
-                    sb.append(ch == '\0' ? ' ' : ch);
+                    // WIDE_RIGHT placeholder cells store codepoint 0 — render as space.
+                    sb.appendCodePoint(ch == 0 ? ' ' : ch);
                 }
             }
+            // Reset ANSI attributes at the end of each row to avoid bleed.
             sb.append("\033[0m\u2502");
             System.out.println(sb);
         }
         System.out.println(bottom);
 
+        // Status line: cursor position, active attributes, and scrollback depth.
         CellAttributes attrs = buf.getAttributes();
         Set<TextStyle> styles = attrs.getStyles();
-        System.out.printf("Cursor: (%d, %d)  fg=%-14s bg=%-14s estilos=[%s%s]  Scrollback: %d lineas%n",
+        System.out.printf("Cursor: (%d, %d)  fg=%-14s bg=%-14s styles=[%s%s]  Scrollback: %d lines%n",
                 cur.getCol(), cur.getRow(),
                 attrs.getForeground(),
                 attrs.getBackground(),
-                styles.isEmpty() ? "ninguno" : "",
+                styles.isEmpty() ? "none" : "",
                 styles.isEmpty() ? "" : styleList(styles),
                 buf.getScrollbackSize());
         System.out.print("> ");
@@ -235,15 +259,17 @@ public class Main {
 
     private static void printScrollback() {
         int size = buf.getScrollbackSize();
-        // Print scrollback history from oldest to newest.
+        // Nothing to show if the scrollback is still empty.
         if (size == 0) {
-            System.out.println("--- Scrollback vacio ---");
+            System.out.println("--- Scrollback empty ---");
             System.out.print("> ");
             System.out.flush();
             return;
         }
-        System.out.println("--- Scrollback (" + size + " lineas, mas antigua primero) ---");
+        // Iterate from -size (oldest) to -1 (most recent), matching the signed-index convention.
+        System.out.println("--- Scrollback (" + size + " lines, oldest first) ---");
         for (int i = -size; i <= -1; i++) {
+            // getLine trims trailing spaces, keeping output readable.
             String content = buf.getLine(i);
             System.out.printf("[%3d] %s%n", i, content);
         }
@@ -259,13 +285,13 @@ public class Main {
         CursorPosition cur = buf.getCursor();
         CellAttributes attrs = buf.getAttributes();
         // Print a compact runtime snapshot of buffer, cursor, and active attributes.
-        System.out.println("Dimensiones : " + buf.getWidth() + " x " + buf.getHeight());
-        System.out.println("Scrollback  : " + buf.getScrollbackSize() + " / " + buf.getMaxScrollback() + " lineas");
+        System.out.println("Dimensions  : " + buf.getWidth() + " x " + buf.getHeight());
+        System.out.println("Scrollback  : " + buf.getScrollbackSize() + " / " + buf.getMaxScrollback() + " lines");
         System.out.println("Cursor      : col=" + cur.getCol() + " row=" + cur.getRow());
         System.out.println("Foreground  : " + attrs.getForeground());
         System.out.println("Background  : " + attrs.getBackground());
         Set<TextStyle> styles = attrs.getStyles();
-        System.out.println("Estilos     : " + (styles.isEmpty() ? "ninguno" : styleList(styles)));
+        System.out.println("Styles      : " + (styles.isEmpty() ? "none" : styleList(styles)));
         System.out.print("> ");
         System.out.flush();
     }
@@ -279,36 +305,36 @@ public class Main {
         System.out.println("╔══════════════════════════════════════════════════════╗");
         System.out.println("║          Terminal Text Buffer — REPL                 ║");
         System.out.println("╠══════════════════════════════════════════════════════╣");
-        System.out.println("║ Escritura                                            ║");
-        System.out.println("║   write <texto>              Escribe en posicion     ║");
-        System.out.println("║   insert <texto>             Inserta (hace shift)    ║");
-        System.out.println("║   fill [char]                Rellena la linea actual ║");
-        System.out.println("║   newline                    Inserta linea vacia     ║");
+        System.out.println("║ Writing                                              ║");
+        System.out.println("║   write <text>               Write at cursor pos     ║");
+        System.out.println("║   insert <text>              Insert (shifts content) ║");
+        System.out.println("║   fill [char]                Fill current line       ║");
+        System.out.println("║   newline                    Insert empty line       ║");
         System.out.println("╠══════════════════════════════════════════════════════╣");
         System.out.println("║ Cursor                                               ║");
-        System.out.println("║   cursor <col> <row>         Mueve el cursor         ║");
-        System.out.println("║   move up|down|left|right [n]  Mueve N posiciones    ║");
+        System.out.println("║   cursor <col> <row>         Move cursor             ║");
+        System.out.println("║   move up|down|left|right [n]  Move N positions      ║");
         System.out.println("╠══════════════════════════════════════════════════════╣");
-        System.out.println("║ Atributos                                            ║");
-        System.out.println("║   fg <COLOR>                 Color de texto          ║");
-        System.out.println("║   bg <COLOR>                 Color de fondo          ║");
-        System.out.println("║   bold | italic | underline  Activa estilo           ║");
-        System.out.println("║   nostyle BOLD|ITALIC|UNDERLINE  Desactiva estilo    ║");
-        System.out.println("║   reset                      Resetea atributos       ║");
-        System.out.println("║ Colores: DEFAULT RED GREEN YELLOW BLUE MAGENTA       ║");
-        System.out.println("║          CYAN WHITE BLACK  (y BRIGHT_* variantes)    ║");
+        System.out.println("║ Attributes                                           ║");
+        System.out.println("║   fg <COLOR>                 Text color              ║");
+        System.out.println("║   bg <COLOR>                 Background color        ║");
+        System.out.println("║   bold | italic | underline  Enable style            ║");
+        System.out.println("║   nostyle BOLD|ITALIC|UNDERLINE  Disable style       ║");
+        System.out.println("║   reset                      Reset attributes        ║");
+        System.out.println("║ Colors: DEFAULT RED GREEN YELLOW BLUE MAGENTA        ║");
+        System.out.println("║         CYAN WHITE BLACK  (and BRIGHT_* variants)    ║");
         System.out.println("╠══════════════════════════════════════════════════════╣");
-        System.out.println("║ Pantalla                                             ║");
-        System.out.println("║   clear                      Limpia la pantalla      ║");
-        System.out.println("║   clearall                   Limpia pantalla+scrollb ║");
-        System.out.println("║   resize <w> <h>             Redimensiona el buffer  ║");
+        System.out.println("║ Screen                                               ║");
+        System.out.println("║   clear                      Clear the screen        ║");
+        System.out.println("║   clearall                   Clear screen+scrollback ║");
+        System.out.println("║   resize <w> <h>             Resize the buffer       ║");
         System.out.println("╠══════════════════════════════════════════════════════╣");
         System.out.println("║ Info                                                 ║");
-        System.out.println("║   print                      Repinta el buffer       ║");
-        System.out.println("║   scrollback                 Muestra el scrollback   ║");
-        System.out.println("║   info                       Estado actual           ║");
-        System.out.println("║   help                       Muestra esta ayuda      ║");
-        System.out.println("║   exit / quit                Salir                   ║");
+        System.out.println("║   print                      Repaint buffer          ║");
+        System.out.println("║   scrollback                 Show scrollback         ║");
+        System.out.println("║   info                       Current state           ║");
+        System.out.println("║   help                       Show this help          ║");
+        System.out.println("║   exit / quit                Exit                    ║");
         System.out.println("╚══════════════════════════════════════════════════════╝");
     }
 

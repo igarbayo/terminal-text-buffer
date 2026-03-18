@@ -46,7 +46,7 @@ dependency conflicts.
 **Context:** JUnit 5 is the current standard for Java testing. It is available
 as a Gradle test dependency and does not affect the runtime artefact.
 
-**Consequences:** EPL-2.0 licence (JUnit's licence) applies to the test code at
+**Consequences:** EPL-2.0 license (JUnit's license) applies to the test code at
 build time. It does not affect the MIT-licensed library artefact.
 
 ---
@@ -69,22 +69,24 @@ entire row array on every character write — O(width) per character.
 
 ---
 
-## ADR-005: Scrollback storage — ArrayDeque
+## ADR-005: Scrollback storage — circular buffer
 
-**Decision:** `ArrayDeque<Row>` for scrollback, with the front being the oldest
-entry and the back the newest.
+**Decision:** A fixed-size `Row[]` circular buffer with two int fields:
+`sbHead` (index of the oldest live entry) and `sbCount` (number of live
+entries). The newest entry lives at index `(sbHead + sbCount - 1) % maxScrollback`;
+the `n`-th entry relative to the current scrollback tail is resolved as
+`scrollback[(sbHead + sbCount + n) % maxScrollback]` (where `n` is negative).
 
-**Context:** Scrollback needs O(1) push (when a row scrolls off the screen) and
-O(1) eviction (when the scrollback is full). Random access by index was not
-initially a performance concern.
+**Context:** Scrollback needs O(1) push (when a row scrolls off the screen),
+O(1) eviction (when the scrollback is full), and O(1) random access for
+`resolveRow()`.
 
-**Trade-off:** Push and eviction are O(1). Random access by index is O(n). For
-a 10 000-line scrollback this is measurable but acceptable for the expected use
-cases.
+**Trade-off:** All three operations are O(1). The implementation is slightly
+more complex than a `ArrayDeque`, but the indices are straightforward once the
+modular arithmetic is understood.
 
-**Known improvement:** Replacing `ArrayDeque` with a fixed-size `Row[]` circular
-buffer would give O(1) random access at the cost of a more complex
-implementation. See Potential Improvements in the README.
+**Supersedes:** An earlier version used `ArrayDeque<Row>` which gave O(1) push
+and eviction but O(n) random access.
 
 ---
 
@@ -124,10 +126,13 @@ terminal emulators. The alternatives were:
 existing fixed-width `Row` model. Writing over either half of a wide pair
 automatically clears both halves.
 
-**Known limitation:** Characters above U+FFFF (supplementary-plane emoji) are
-detected correctly but stored as `(char) codePoint`, losing the high surrogate.
-Changing `Cell.character` from `char` to `int` would fix this without breaking
-the public API.
+**Note on supplementary-plane codepoints:** `Cell.character` is stored as
+`int` (a Unicode codepoint, not a UTF-16 `char`), so emoji and other
+supplementary-plane characters above U+FFFF are stored without loss.
+`Row.toContentString()` uses `StringBuilder.appendCodePoint(int)` to render
+them correctly. The public `getChar(col, row)` method still returns `char`
+for convenience — callers that need the full codepoint can use
+`Cell.getCodePoint()` directly.
 
 ---
 
@@ -146,7 +151,7 @@ immediately triggering a scroll.
 
 ---
 
-## ADR-009: MIT licence
+## ADR-009: MIT license
 
 **Decision:** MIT.
 

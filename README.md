@@ -6,6 +6,9 @@
 > A terminal text buffer implementation in Java — the core data structure used by
 > terminal emulators to store, edit, and render text output.
 
+![alt text](images/image.png)
+![alt text](images/image-1.png)
+
 ---
 
 ## What is this?
@@ -35,15 +38,6 @@ Be aware of these before you use it:
   support works correctly in the library (verified by the automated test suite)
   but cannot be tested interactively from those terminals. Use IntelliJ's
   built-in terminal or Windows Terminal with `chcp 65001`.
-
-- **Scrollback access is O(n):** `resolveRow()` iterates an `ArrayDeque` to
-  find a scrollback row by index. For large scrollback sizes this is linear.
-  See [Architecture & Design](#architecture--design) for the recommended fix.
-
-- **Supplementary-plane emoji (U+1F300+):** The `Cell` class stores characters
-  as `char` (UTF-16 code unit). Codepoints above U+FFFF are detected correctly
-  via `codePointAt` but stored as `(char) codePoint`, losing the high surrogate.
-  Changing `Cell.character` to `int` would fix this.
 
 ---
 
@@ -94,11 +88,11 @@ char   ch     = buf.getChar(0, 0); // 'H'
 A command-line REPL lets you poke at the buffer manually:
 
 ```bash
-./gradlew run --console=plain -q
+./gradlew run
 ```
 
 Type `help` at the prompt to see all commands, or consult the
-[manual testing guide](docs/manual-testing-guide.md) for a full walkthrough
+[manual testing guide](docs/MANUAL_TESTING_GUIDE.md) for a full walkthrough
 with expected output.
 
 | Command | What it does |
@@ -190,20 +184,20 @@ at least that the runtime is at least Java 8.
 ## Architecture & Design
 
 ```
-                    ┌────────────────────────────────────────────────┐
-                    │              TerminalBuffer (public API)         │
-                    │                                                  │
-                    │  cursor: CursorPosition                          │
-                    │  attrs:  CellAttributes  (fg, bg, styles)        │
-                    │                                                  │
-                    │  ┌──────────────────────┐  ┌──────────────────┐ │
-                    │  │      Screen          │  │    Scrollback    │ │
-                    │  │  Row[height]         │  │  ArrayDeque<Row> │ │
-                    │  │  (mutable, editable) │  │  (read-only;     │ │
-                    │  │                      │  │   max size cap)  │ │
-                    │  │  row 0 = top line    │  │  -1 = newest     │ │
-                    │  │  row h-1 = bottom    │  │  -n = oldest     │ │
-                    │  └──────────────────────┘  └──────────────────┘ │
+                    ┌───────────────────────────────────────────────────┐
+                    │              TerminalBuffer (public API)          │
+                    │                                                   │
+                    │  cursor: CursorPosition                           │
+                    │  attrs:  CellAttributes  (fg, bg, styles)         │
+                    │                                                   │
+                    │  ┌──────────────────────┐  ┌──────────────────┐   │
+                    │  │      Screen          │  │    Scrollback    │   │
+                    │  │  Row[height]         │  │  Row[] circular  │   │
+                    │  │  (mutable, editable) │  │  (read-only;     │   │
+                    │  │                      │  │   max size cap)  │   │
+                    │  │  row 0 = top line    │  │  -1 = newest     │   │
+                    │  │  row h-1 = bottom    │  │  -n = oldest     │   │
+                    │  └──────────────────────┘  └──────────────────┘   │
                     │           │                          │            │
                     │           └──────────┬───────────────┘            │
                     │                      │                            │
@@ -215,7 +209,7 @@ at least that the runtime is at least Java 8.
                     │                      │  WIDE_RIGHT)               │
                     └──────────────────────┴────────────────────────────┘
 
-  CellAttributes = TerminalColor (fg) + TerminalColor (bg) + EnumSet<TextStyle>
+  CellAttributes = TerminalColor (fg) + TerminalColor (bg) + Set<TextStyle>
   TerminalColor  = DEFAULT | BLACK | RED | GREEN | YELLOW | BLUE |
                    MAGENTA | CYAN | WHITE | BRIGHT_* variants (17 total)
   TextStyle      = BOLD | ITALIC | UNDERLINE
@@ -232,11 +226,14 @@ the front.
 TerminalColor (enum)       — 16 standard colors + DEFAULT (17 values)
 TextStyle (enum)           — BOLD, ITALIC, UNDERLINE
 CellAttributes (immutable) — fg color + bg color + EnumSet<TextStyle>
-Cell (immutable)           — char + CellAttributes + CellType (NORMAL/WIDE_LEFT/WIDE_RIGHT)
+Cell (immutable)           — int codePoint + CellAttributes + CellType (NORMAL/WIDE_LEFT/WIDE_RIGHT)
 Row (package-private)      — mutable fixed-width array of Cells
 CursorPosition (immutable) — (col, row) value object
 TerminalBuffer (public)    — the main API class
 ```
+
+For the full rationale and alternatives considered for each decision, see
+[ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md).
 
 ### Key Design Decisions
 
@@ -259,9 +256,9 @@ future mutations to the screen row do not corrupt history.
 
 #### Scrollback storage
 
-`ArrayDeque<Row>` with front=oldest, back=newest. O(1) push (`addLast`) and
-O(1) eviction (`removeFirst`). Random access by index is O(n) — a fixed-size
-`Row[]` circular buffer would give O(1) at the cost of complexity.
+A fixed-size `Row[]` circular buffer with `sbHead` (index of the oldest entry)
+and `sbCount` (number of live entries). Push and eviction are O(1); random
+access by index is also O(1) via `scrollback[(sbHead + sbCount + n) % maxScrollback]`.
 
 #### Coordinate system
 
@@ -324,11 +321,6 @@ subsequent rows recursively:
 
 ## Trade-offs and Known Limitations
 
-- **`char` vs `int` for wide chars**: Cell stores `char` (covers all BMP
-  including CJK). Supplementary-plane emoji above U+FFFF are detected but
-  stored with loss. Changing `Cell.character` to `int` fixes this without
-  changing the public API.
-
 - **`insertText` cursor position after overflow**: Cursor arithmetic is based
   on total character count relative to the cursor start. Consistent in the
   current implementation; could be refined for complex multi-line inserts.
@@ -337,14 +329,10 @@ subsequent rows recursively:
   to avoid infinite blank-cell propagation. Intentional trailing spaces at the
   end of a full row would be dropped.
 
-- **Scrollback access is O(n)**: See [Known Limitations](#known-limitations).
-
 ---
 
 ## Potential Improvements
 
-- Replace `ArrayDeque<Row>` with a `Row[]` circular buffer for O(1) scrollback access.
-- Change `Cell.character` from `char` to `int` for full supplementary-plane emoji support.
 - Add `Bidi` (bidirectional text) support for RTL languages.
 - Add `SGR` (Select Graphic Rendition) parsing to process ANSI escape sequences directly.
 - Add alternate screen buffer support (used by fullscreen TUI apps like vim).
@@ -387,6 +375,9 @@ the full text.
 
 The choice of MIT reflects the academic nature of this project: maximum freedom
 to study, adapt, and reuse, with no restrictions on how you use it.
+
+Third-party component licenses are listed in
+[COMPONENTS_LICENSE.md](docs/COMPONENTS_LICENSE.md).
 
 [![REUSE Compliant](https://api.reuse.software/badge/github.com/igarbayo/terminal-text-buffer)](https://api.reuse.software/info/github.com/igarbayo/terminal-text-buffer)
 

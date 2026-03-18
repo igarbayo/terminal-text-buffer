@@ -12,7 +12,7 @@ class CellTest {
     // Cell.EMPTY must represent a space with default attributes and NORMAL type.
     @Test
     void emptyConstantHasSpaceAndDefaultAttributes() {
-        assertEquals(' ', Cell.EMPTY.getCharacter());
+        assertEquals(' ', Cell.EMPTY.getCodePoint());
         assertEquals(CellAttributes.DEFAULT, Cell.EMPTY.getAttributes());
         assertEquals(Cell.CellType.NORMAL, Cell.EMPTY.getType());
     }
@@ -21,7 +21,7 @@ class CellTest {
     @Test
     void twoArgConstructorDefaultsToNormalType() {
         Cell cell = new Cell('A', CellAttributes.DEFAULT);
-        assertEquals('A', cell.getCharacter());
+        assertEquals('A', cell.getCodePoint());
         assertEquals(Cell.CellType.NORMAL, cell.getType());
         assertFalse(cell.isWide());
         assertFalse(cell.isPlaceholder());
@@ -82,6 +82,15 @@ class CellTest {
         Cell a = new Cell('A', CellAttributes.DEFAULT);
         Cell b = new Cell('A', CellAttributes.DEFAULT.withForeground(TerminalColor.RED));
         assertNotEquals(a, b);
+    }
+
+    // A supplementary-plane codepoint (U+1F600, above U+FFFF) must survive a round-trip
+    // through Cell without truncation — this was impossible when the field was a char.
+    @Test
+    void supplementaryPlaneCodePointRoundTrips() {
+        int emoji = 0x1F600; // 😀
+        Cell cell = new Cell(emoji, CellAttributes.DEFAULT);
+        assertEquals(emoji, cell.getCodePoint());
     }
 
     // The cell must return exactly the attributes it was constructed with.
