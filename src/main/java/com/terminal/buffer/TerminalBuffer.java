@@ -1,8 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es>
+// SPDX-License-Identifier: MIT
+
 package com.terminal.buffer;
 
-import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.EnumSet;
 
 public class TerminalBuffer {
 
@@ -11,10 +12,13 @@ public class TerminalBuffer {
     private final int maxScrollback;
 
     private Row[] screen;
-    private final ArrayDeque<Row> scrollback;
+    private final Row[] scrollback;   // fixed-size circular ring
+    private int sbHead;               // index of oldest entry
+    private int sbCount;              // number of stored rows
 
     private int cursorCol;
     private int cursorRow;
+    // xterm-style deferred wrap once writing reaches the last column.
     private boolean pendingWrap;
 
     private CellAttributes currentAttributes;
@@ -32,11 +36,15 @@ public class TerminalBuffer {
         this.height = height;
         this.maxScrollback = maxScrollback;
 
+        // Allocate the screen grid; every cell starts as Cell.EMPTY (space, default attributes).
         this.screen = new Row[height];
         for (int i = 0; i < height; i++) {
             screen[i] = new Row(width);
         }
-        this.scrollback = new ArrayDeque<>();
+        // Scrollback is pre-allocated once; entries are filled lazily as rows scroll off.
+        this.scrollback = new Row[maxScrollback];
+        this.sbHead = 0;
+        this.sbCount = 0;
         this.cursorCol = 0;
         this.cursorRow = 0;
         this.pendingWrap = false;
@@ -50,13 +58,14 @@ public class TerminalBuffer {
     public int getWidth() { return width; }
     public int getHeight() { return height; }
     public int getMaxScrollback() { return maxScrollback; }
-    public int getScrollbackSize() { return scrollback.size(); }
+    public int getScrollbackSize() { return sbCount; }
 
     // -------------------------------------------------------------------------
     // Current Attributes
     // -------------------------------------------------------------------------
 
     public void setAttributes(CellAttributes attributes) {
+        // Replaces the full active attribute state used by future writes.
         this.currentAttributes = attributes;
     }
 
@@ -65,22 +74,27 @@ public class TerminalBuffer {
     }
 
     public void setForeground(TerminalColor color) {
+        // Produces a new CellAttributes with only the foreground changed.
         currentAttributes = currentAttributes.withForeground(color);
     }
 
     public void setBackground(TerminalColor color) {
+        // Produces a new CellAttributes with only the background changed.
         currentAttributes = currentAttributes.withBackground(color);
     }
 
     public void addStyle(TextStyle style) {
+        // Adds one style flag; other flags are preserved.
         currentAttributes = currentAttributes.withStyle(style);
     }
 
     public void removeStyle(TextStyle style) {
+        // Removes one style flag; other flags are preserved.
         currentAttributes = currentAttributes.withoutStyle(style);
     }
 
     public void resetAttributes() {
+        // Restores fg=DEFAULT, bg=DEFAULT, and clears all style flags.
         currentAttributes = CellAttributes.DEFAULT;
     }
 
@@ -89,16 +103,20 @@ public class TerminalBuffer {
     // -------------------------------------------------------------------------
 
     public CursorPosition getCursor() {
+        // Returns a snapshot — callers cannot mutate internal cursor state.
         return new CursorPosition(cursorCol, cursorRow);
     }
 
     public void setCursor(int col, int row) {
+        // Keep cursor always inside visible screen bounds.
         cursorCol = clampCol(col);
         cursorRow = clampRow(row);
+        // Any explicit cursor move cancels a pending wrap.
         pendingWrap = false;
     }
 
     public void moveCursorRight(int n) {
+        // Relative movement is clamped instead of throwing on overflow.
         cursorCol = clampCol(cursorCol + n);
         pendingWrap = false;
     }
@@ -135,35 +153,36 @@ public class TerminalBuffer {
             int cp = text.codePointAt(i);
             i += Character.charCount(cp);
 
-            // Resolve pending wrap before writing
+            // Resolve pending wrap before writing the next character.
             if (pendingWrap) {
                 pendingWrap = false;
                 advanceCursorToNextLine();
             }
 
             if (isWideCodePoint(cp)) {
-                // Need 2 columns; truncate if only 1 column left
+                // A wide glyph needs 2 columns; skip it if only 1 column remains.
                 if (cursorCol >= width - 1) {
-                    // No room for both halves — skip character, stay at edge
                     cursorCol = width - 1;
                     pendingWrap = true;
                     break;
                 }
+                // Clear any wide-pair halves that overlap the two target columns.
                 clearWideOverlap(cursorCol);
                 clearWideOverlap(cursorCol + 1);
-                char ch = (char) cp; // safe for BMP
                 screen[cursorRow].setCell(cursorCol,
-                        new Cell(ch, currentAttributes, Cell.CellType.WIDE_LEFT));
+                        new Cell(cp, currentAttributes, Cell.CellType.WIDE_LEFT));
                 screen[cursorRow].setCell(cursorCol + 1,
-                        new Cell('\0', currentAttributes, Cell.CellType.WIDE_RIGHT));
+                        new Cell(0, currentAttributes, Cell.CellType.WIDE_RIGHT));
                 cursorCol += 2;
             } else {
+                // Narrow character: clear any wide pair at this column, then write.
                 clearWideOverlap(cursorCol);
                 screen[cursorRow].setCell(cursorCol,
-                        new Cell((char) cp, currentAttributes));
+                        new Cell(cp, currentAttributes));
                 cursorCol++;
             }
 
+            // If the cursor has moved past the last column, arm the pending-wrap flag.
             if (cursorCol >= width) {
                 cursorCol = width - 1;
                 pendingWrap = true;
@@ -179,16 +198,17 @@ public class TerminalBuffer {
     public void insertText(String text) {
         if (text == null || text.isEmpty()) return;
 
+        // Honour any pending wrap the same way writeText does.
         if (pendingWrap) {
             pendingWrap = false;
             advanceCursorToNextLine();
         }
 
-        // Collect all cells to insert
+        // Build the full cell array for the new text, then delegate to the recursive helper.
         Cell[] toInsert = buildCells(text);
         insertCellsAt(cursorCol, cursorRow, toInsert);
 
-        // Advance cursor past inserted content
+        // Advance cursor past the inserted content, wrapping across rows if necessary.
         int advance = toInsert.length;
         int newCol = cursorCol + advance;
         if (newCol >= width) {
@@ -205,6 +225,7 @@ public class TerminalBuffer {
      * current attributes. Cursor column is unchanged.
      */
     public void fillLine(char ch) {
+        // A single Cell is constructed and shared; Row.fill copies it into every slot.
         Cell fill = new Cell(ch, currentAttributes);
         screen[cursorRow].fill(fill);
     }
@@ -219,6 +240,7 @@ public class TerminalBuffer {
      */
     public void insertEmptyLine() {
         pushTopRowToScrollback();
+        // Shift rows [1..height-1] one slot up in O(height) via arraycopy.
         System.arraycopy(screen, 1, screen, 0, height - 1);
         screen[height - 1] = new Row(width);
     }
@@ -228,13 +250,16 @@ public class TerminalBuffer {
         for (int i = 0; i < height; i++) {
             screen[i] = new Row(width);
         }
+        // Reset pending wrap so the next write starts cleanly.
         pendingWrap = false;
     }
 
     /** Clears screen and all scrollback history. */
     public void clearAll() {
         clearScreen();
-        scrollback.clear();
+        // Reset both ring-buffer pointers to discard every stored row.
+        sbHead = 0;
+        sbCount = 0;
     }
 
     // -------------------------------------------------------------------------
@@ -246,7 +271,8 @@ public class TerminalBuffer {
      * Screen: row in [0, height-1]; Scrollback: row in [-scrollbackSize, -1].
      */
     public char getChar(int col, int row) {
-        return resolveRow(row).getCell(col).getCharacter();
+        // Cast is safe for BMP characters; use getCell().getCodePoint() for full Unicode.
+        return (char) resolveRow(row).getCell(col).getCodePoint();
     }
 
     /**
@@ -269,6 +295,7 @@ public class TerminalBuffer {
      */
     public String getLine(int row) {
         String raw = resolveRow(row).toContentString();
+        // Strip trailing spaces so callers get a clean logical string.
         int end = raw.length();
         while (end > 0 && raw.charAt(end - 1) == ' ') end--;
         return raw.substring(0, end);
@@ -278,6 +305,7 @@ public class TerminalBuffer {
      * Returns the full fixed-width content of the given line (always width chars).
      */
     public String getRawLine(int row) {
+        // No trimming: every cell is included, padded with spaces where empty.
         return resolveRow(row).toContentString();
     }
 
@@ -298,9 +326,10 @@ public class TerminalBuffer {
      */
     public String getAllContent() {
         StringBuilder sb = new StringBuilder();
-        for (Row row : scrollback) {
-            sb.append(row.toContentString());
-            sb.append('\n');
+        // Iterate the circular buffer in chronological order (oldest → newest).
+        for (int i = 0; i < sbCount; i++) {
+            Row row = scrollback[(sbHead + i) % maxScrollback];
+            sb.append(row.toContentString()).append('\n');
         }
         for (int i = 0; i < height; i++) {
             if (i > 0) sb.append('\n');
@@ -325,23 +354,21 @@ public class TerminalBuffer {
         if (newWidth <= 0) throw new IllegalArgumentException("width must be > 0");
         if (newHeight <= 0) throw new IllegalArgumentException("height must be > 0");
 
-        // Adjust width of all existing rows
+        // Adjust width of all existing screen and scrollback rows first.
         if (newWidth != width) {
             for (int i = 0; i < height; i++) {
                 screen[i] = resizeRow(screen[i], newWidth);
             }
-            Row[] newScrollback = new Row[scrollback.size()];
-            int idx = 0;
-            for (Row r : scrollback) {
-                newScrollback[idx++] = resizeRow(r, newWidth);
+            // Also resize scrollback rows so getChar works consistently after resize.
+            for (int i = 0; i < sbCount; i++) {
+                int idx = (sbHead + i) % maxScrollback;
+                scrollback[idx] = resizeRow(scrollback[idx], newWidth);
             }
-            scrollback.clear();
-            for (Row r : newScrollback) scrollback.addLast(r);
         }
 
-        // Adjust height
+        // Adjust height after width so row objects already have the correct width.
         if (newHeight < height) {
-            // Rows removed from the top enter scrollback
+            // Rows removed from the top enter scrollback so history is not lost.
             int rowsToRemove = height - newHeight;
             for (int i = 0; i < rowsToRemove; i++) {
                 pushRowToScrollback(screen[i]);
@@ -350,6 +377,7 @@ public class TerminalBuffer {
             System.arraycopy(screen, rowsToRemove, newScreen, 0, newHeight);
             screen = newScreen;
         } else if (newHeight > height) {
+            // Grow: append blank rows at the bottom.
             Row[] newScreen = new Row[newHeight];
             System.arraycopy(screen, 0, newScreen, 0, height);
             for (int i = height; i < newHeight; i++) {
@@ -361,6 +389,7 @@ public class TerminalBuffer {
         width = newWidth;
         height = newHeight;
 
+        // Cursor may become out-of-bounds after resize, so clamp it again.
         cursorCol = clampCol(cursorCol);
         cursorRow = clampRow(cursorRow);
         pendingWrap = false;
@@ -379,40 +408,44 @@ public class TerminalBuffer {
     }
 
     private Row resolveRow(int row) {
+        // Non-negative rows address visible screen, negative rows address scrollback.
         if (row >= 0 && row < height) {
             return screen[row];
         }
-        int sbSize = scrollback.size();
-        if (row < 0 && row >= -sbSize) {
-            // row -1 → index sbSize-1 (most recent), row -sbSize → index 0 (oldest)
-            int index = sbSize + row;
-            int i = 0;
-            for (Row r : scrollback) {
-                if (i == index) return r;
-                i++;
-            }
+        if (row < 0 && row >= -sbCount) {
+            // row -1 → newest (offset sbCount-1 from head), row -sbCount → oldest (head)
+            int index = sbCount + row;
+            return scrollback[(sbHead + index) % maxScrollback];
         }
         throw new IllegalArgumentException("Row out of bounds: " + row +
-                " (screen height=" + height + ", scrollbackSize=" + sbSize + ")");
+                " (screen height=" + height + ", scrollbackSize=" + sbCount + ")");
     }
 
     private void pushTopRowToScrollback() {
+        // Convenience wrapper that always pushes the first visible screen row.
         pushRowToScrollback(screen[0]);
     }
 
     private void pushRowToScrollback(Row row) {
         if (maxScrollback == 0) return;
-        scrollback.addLast(new Row(row));
-        if (scrollback.size() > maxScrollback) {
-            scrollback.removeFirst();
+        // Store a snapshot so later screen mutations do not corrupt history.
+        int tail = (sbHead + sbCount) % maxScrollback;
+        scrollback[tail] = new Row(row);
+        if (sbCount < maxScrollback) {
+            sbCount++;
+        } else {
+            // Ring is full: advance head to evict the oldest entry.
+            sbHead = (sbHead + 1) % maxScrollback;
         }
     }
 
     private void advanceCursorToNextLine() {
+        // At bottom edge, advance implies scroll-up by inserting an empty line.
         if (cursorRow < height - 1) {
             cursorRow++;
             cursorCol = 0;
         } else {
+            // Already on the last row: scroll the screen and keep the cursor there.
             insertEmptyLine();
             cursorCol = 0;
             // cursorRow stays at height-1
@@ -423,8 +456,10 @@ public class TerminalBuffer {
     private void clearWideOverlap(int col) {
         if (col < 0 || col >= width) return;
         Cell existing = screen[cursorRow].getCell(col);
+        // Overwriting the left half of a wide pair: erase the right placeholder.
         if (existing.isWide() && col + 1 < width) {
             screen[cursorRow].setCell(col + 1, Cell.EMPTY);
+        // Overwriting the right placeholder: erase the left half that owns the glyph.
         } else if (existing.isPlaceholder() && col - 1 >= 0) {
             screen[cursorRow].setCell(col - 1, Cell.EMPTY);
         }
@@ -432,7 +467,7 @@ public class TerminalBuffer {
 
     /** Build an array of Cells from a string, honouring wide characters. */
     private Cell[] buildCells(String text) {
-        // Count total cells needed
+        // First pass: count total cells needed (wide chars cost 2 slots).
         int cellCount = 0;
         for (int i = 0; i < text.length(); ) {
             int cp = text.codePointAt(i);
@@ -440,16 +475,18 @@ public class TerminalBuffer {
             cellCount += isWideCodePoint(cp) ? 2 : 1;
         }
 
+        // Second pass: populate the cell array.
         Cell[] cells = new Cell[cellCount];
         int idx = 0;
         for (int i = 0; i < text.length(); ) {
             int cp = text.codePointAt(i);
             i += Character.charCount(cp);
             if (isWideCodePoint(cp)) {
-                cells[idx++] = new Cell((char) cp, currentAttributes, Cell.CellType.WIDE_LEFT);
-                cells[idx++] = new Cell('\0', currentAttributes, Cell.CellType.WIDE_RIGHT);
+                // Wide glyph: left cell holds the codepoint, right cell is a zero placeholder.
+                cells[idx++] = new Cell(cp, currentAttributes, Cell.CellType.WIDE_LEFT);
+                cells[idx++] = new Cell(0, currentAttributes, Cell.CellType.WIDE_RIGHT);
             } else {
-                cells[idx++] = new Cell((char) cp, currentAttributes);
+                cells[idx++] = new Cell(cp, currentAttributes);
             }
         }
         return cells;
@@ -469,28 +506,30 @@ public class TerminalBuffer {
         Row currentRow = screen[row];
         int available = width - col;
 
-        // Save existing content from col to end of row
+        // Capture the tail of the current row that will be displaced by the insertion.
         Cell[] existing = new Cell[available];
         for (int i = 0; i < available; i++) {
             existing[i] = currentRow.getCell(col + i);
         }
 
-        // Combined: new cells first, then displaced existing content
+        // Merged array: new cells first, then the displaced tail.
         Cell[] combined = new Cell[cells.length + available];
         System.arraycopy(cells, 0, combined, 0, cells.length);
         System.arraycopy(existing, 0, combined, cells.length, available);
 
-        // Write first `available` slots of combined back into the row
+        // Write the first `available` cells of combined back into the current row.
         for (int i = 0; i < available; i++) {
             currentRow.setCell(col + i, combined[i]);
         }
 
-        // Overflow: everything past the first `available` elements
+        // If the combined array is longer than the row tail, we have overflow to push down.
         if (combined.length > available) {
             Cell[] overflow = Arrays.copyOfRange(combined, available, combined.length);
             if (hasActualContent(overflow)) {
+                // Recursively continue insertion on the next row.
                 int nextRow = row + 1;
                 if (nextRow >= height) {
+                    // We've hit the bottom: scroll up to make room.
                     insertEmptyLine();
                     nextRow = height - 1;
                 }
@@ -501,8 +540,9 @@ public class TerminalBuffer {
 
     /** Returns true if any cell contains non-space content or non-default attributes. */
     private static boolean hasActualContent(Cell[] cells) {
+        // Suppresses propagation of overflow that is purely blank space.
         for (Cell c : cells) {
-            if (c.getCharacter() != ' ' || !c.getAttributes().equals(CellAttributes.DEFAULT)) {
+            if (c.getCodePoint() != ' ' || !c.getAttributes().equals(CellAttributes.DEFAULT)) {
                 return true;
             }
         }
@@ -511,6 +551,7 @@ public class TerminalBuffer {
 
     private Row resizeRow(Row row, int newWidth) {
         Row newRow = new Row(newWidth);
+        // Copy as many cells as fit in the new width; extras are left as Cell.EMPTY.
         int copyLen = Math.min(row.getWidth(), newWidth);
         for (int i = 0; i < copyLen; i++) {
             newRow.setCell(i, row.getCell(i));
@@ -519,12 +560,11 @@ public class TerminalBuffer {
     }
 
     private static boolean isWideCodePoint(int cp) {
-        int type = Character.getType(cp);
-        // East Asian Wide / Fullwidth characters
-        return type == Character.OTHER_LETTER &&
-                ((cp >= 0x1100 && cp <= 0x115F)   // Hangul Jamo
+        // East Asian Wide / Fullwidth characters — ranges alone are sufficient,
+        // no need to filter by Unicode category type.
+        return (cp >= 0x1100 && cp <= 0x115F)   // Hangul Jamo
                 || (cp >= 0x2E80 && cp <= 0x303E)  // CJK Radicals
-                || (cp >= 0x3041 && cp <= 0x33FF)  // Japanese
+                || (cp >= 0x3041 && cp <= 0x33FF)  // Japanese (hiragana, katakana, CJK symbols)
                 || (cp >= 0x3400 && cp <= 0x4DBF)  // CJK Extension A
                 || (cp >= 0x4E00 && cp <= 0x9FFF)  // CJK Unified Ideographs
                 || (cp >= 0xA000 && cp <= 0xA4CF)  // Yi
@@ -535,7 +575,6 @@ public class TerminalBuffer {
                 || (cp >= 0xFF00 && cp <= 0xFF60)  // Fullwidth Forms
                 || (cp >= 0xFFE0 && cp <= 0xFFE6)  // Fullwidth Signs
                 || (cp >= 0x1F300 && cp <= 0x1F9FF) // Emoji
-                || (cp >= 0x20000 && cp <= 0x2A6DF) // CJK Extension B
-                );
+                || (cp >= 0x20000 && cp <= 0x2A6DF); // CJK Extension B
     }
 }

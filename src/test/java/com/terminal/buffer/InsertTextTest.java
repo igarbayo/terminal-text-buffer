@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es>
+// SPDX-License-Identifier: MIT
+
 package com.terminal.buffer;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +17,7 @@ class InsertTextTest {
         buf = new TerminalBuffer(5, 3, 100);
     }
 
+    // Inserting into an empty row must write the characters starting at the cursor column.
     @Test
     void insertTextAtStartOfEmptyRowWritesChars() {
         buf.setCursor(0, 0);
@@ -22,6 +26,8 @@ class InsertTextTest {
         assertEquals('i', buf.getChar(1, 0));
     }
 
+    // Inserting in the middle of a row must push existing characters to the right;
+    // characters that overflow the row width wrap to the next row.
     @Test
     void insertTextShiftsExistingContentRight() {
         buf.setCursor(0, 0);
@@ -34,6 +40,7 @@ class InsertTextTest {
         assertEquals("DE", buf.getLine(1));
     }
 
+    // Inserting at column 0 must shift every existing character right by one position per inserted char.
     @Test
     void insertTextAtColumnZeroShiftsEntireRow() {
         buf.setCursor(0, 0);
@@ -49,6 +56,7 @@ class InsertTextTest {
         assertEquals("E", buf.getLine(1));
     }
 
+    // When the inserted text fits exactly up to the end of the row, no wrapping must occur.
     @Test
     void insertTextFillsExactlyToEndOfLineNoWrap() {
         buf.setCursor(3, 0);
@@ -58,6 +66,7 @@ class InsertTextTest {
         assertEquals("", buf.getLine(1), "no wrap needed, row 1 must be empty");
     }
 
+    // When overflow reaches the last row, the top row must scroll into the scrollback.
     @Test
     void insertTextWrappingAtLastRowCausesScroll() {
         buf = new TerminalBuffer(3, 2, 100);
@@ -73,6 +82,7 @@ class InsertTextTest {
         assertEquals(1, buf.getScrollbackSize(), "top row should have scrolled to scrollback");
     }
 
+    // The cursor must advance past all inserted characters; wrapping to the next row if necessary.
     @Test
     void insertTextAdvancesCursorPastInsertedContent() {
         buf.setCursor(0, 0);
@@ -82,6 +92,7 @@ class InsertTextTest {
         assertEquals(1, buf.getCursor().getRow());
     }
 
+    // insertText must stamp the current buffer attributes onto every character it writes.
     @Test
     void insertTextUsesCurrentAttributes() {
         buf.setForeground(TerminalColor.GREEN);
@@ -90,6 +101,7 @@ class InsertTextTest {
         assertEquals(TerminalColor.GREEN, buf.getAttributesAt(0, 0).getForeground());
     }
 
+    // Inserting an empty string must be a no-op (cursor and content unchanged).
     @Test
     void insertEmptyStringIsNoOp() {
         buf.setCursor(2, 1);

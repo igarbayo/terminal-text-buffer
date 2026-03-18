@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es>
+// SPDX-License-Identifier: MIT
+
 package com.terminal.buffer;
 
 import java.util.Collections;
@@ -14,12 +17,14 @@ public final class CellAttributes {
     private final TerminalColor background;
     private final EnumSet<TextStyle> styles;
 
+    // Constructors
     public CellAttributes(TerminalColor foreground, TerminalColor background, Set<TextStyle> styles) {
         this.foreground = foreground;
         this.background = background;
         this.styles = styles.isEmpty() ? EnumSet.noneOf(TextStyle.class) : EnumSet.copyOf(styles);
     }
 
+    // Getters
     public TerminalColor getForeground() {
         return foreground;
     }
@@ -32,6 +37,9 @@ public final class CellAttributes {
         return Collections.unmodifiableSet(styles);
     }
 
+    // no setters are needed, as CellAttributes is a final class with private final fields, making it immutable
+
+    // Convenience methods for checking styles
     public boolean hasStyle(TextStyle style) {
         return styles.contains(style);
     }
@@ -56,6 +64,8 @@ public final class CellAttributes {
         return new CellAttributes(foreground, background, newStyles);
     }
 
+
+    // we always redefine equals and hashcode together, even if we don't use them in hash-based collections, to ensure consistent behavior when comparing cell attributes
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -71,6 +81,7 @@ public final class CellAttributes {
         return Objects.hash(foreground, background, styles);
     }
 
+    // For debugging purposes, we provide a string representation of the cell attributes that includes its foreground, background, and styles
     @Override
     public String toString() {
         return "CellAttributes{fg=" + foreground + ", bg=" + background + ", styles=" + styles + "}";

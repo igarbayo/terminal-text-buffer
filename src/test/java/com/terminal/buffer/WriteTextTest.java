@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es>
+// SPDX-License-Identifier: MIT
+
 package com.terminal.buffer;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +17,7 @@ class WriteTextTest {
         buf = new TerminalBuffer(10, 5, 100);
     }
 
+    // writeText must place each character at the cursor position and advance the cursor by one per character.
     @Test
     void writeTextPlacesCharsAtCursorAndAdvancesCursor() {
         buf.setCursor(0, 0);
@@ -27,6 +31,7 @@ class WriteTextTest {
         assertEquals(0, buf.getCursor().getRow());
     }
 
+    // writeText must overwrite whatever was already in the cells (no shifting).
     @Test
     void writeTextOverwritesExistingContent() {
         buf.setCursor(0, 0);
@@ -40,6 +45,7 @@ class WriteTextTest {
         assertEquals('o', buf.getChar(4, 0));
     }
 
+    // Every character written must carry the buffer's current attribute state at the time of writing.
     @Test
     void writeTextStoresCurrentAttributes() {
         buf.setForeground(TerminalColor.RED);
@@ -51,6 +57,7 @@ class WriteTextTest {
         assertTrue(attrs.hasStyle(TextStyle.BOLD));
     }
 
+    // Writing on a non-zero row must not affect any other row.
     @Test
     void writeTextOnNonZeroRow() {
         buf.setCursor(0, 2);
@@ -60,6 +67,7 @@ class WriteTextTest {
         assertEquals(' ', buf.getChar(0, 0), "other rows must be untouched");
     }
 
+    // Writing an empty string must be a no-op (cursor and content unchanged).
     @Test
     void writeEmptyStringIsNoOp() {
         buf.setCursor(3, 1);
@@ -68,6 +76,7 @@ class WriteTextTest {
         assertEquals(1, buf.getCursor().getRow());
     }
 
+    // Passing null must be treated the same as an empty string (no-op).
     @Test
     void writeTextNullIsNoOp() {
         buf.setCursor(3, 1);
@@ -75,6 +84,8 @@ class WriteTextTest {
         assertEquals(3, buf.getCursor().getCol());
     }
 
+    // Writing past the last column must fill up to the edge and leave the cursor at the last column
+    // in a "pending wrap" state (wrap deferred until the next character is written).
     @Test
     void writeTextTruncatesAtRightEdgeWithPendingWrap() {
         // width=10; cursor at col 8, write "AB"
@@ -86,6 +97,7 @@ class WriteTextTest {
         assertEquals(9, buf.getCursor().getCol());
     }
 
+    // After a pending wrap, the next writeText call must first wrap to the next row before writing.
     @Test
     void pendingWrapCausesNextWriteToWrapToNextLine() {
         buf.setCursor(9, 0); // last col
@@ -97,6 +109,7 @@ class WriteTextTest {
         assertEquals(1, buf.getCursor().getRow());
     }
 
+    // When a pending wrap fires on the last row, the buffer must scroll (insert an empty line).
     @Test
     void pendingWrapAtLastRowScrolls() {
         buf = new TerminalBuffer(5, 2, 100);
@@ -108,6 +121,7 @@ class WriteTextTest {
         assertEquals(1, buf.getScrollbackSize());
     }
 
+    // An explicit setCursor call must cancel any pending wrap state.
     @Test
     void setCursorClearsPendingWrap() {
         buf.setCursor(9, 0);
@@ -118,6 +132,7 @@ class WriteTextTest {
         assertEquals(0, buf.getCursor().getRow());
     }
 
+    // Writing at the start of a non-first row must not affect rows above it.
     @Test
     void writeTextOnStartOfNonFirstRow() {
         buf.setCursor(0, 2);

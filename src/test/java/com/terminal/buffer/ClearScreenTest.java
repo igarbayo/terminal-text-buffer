@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ignacio Garbayo Fernández <ignacio.garbayo@rai.usc.es>
+// SPDX-License-Identifier: MIT
+
 package com.terminal.buffer;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +17,7 @@ class ClearScreenTest {
         buf = new TerminalBuffer(5, 3, 100);
     }
 
+    // A fresh buffer must render as a grid of spaces (no content written yet).
     @Test
     void freshBufferScreenContentIsAllSpaces() {
         String content = buf.getScreenContent();
@@ -21,6 +25,7 @@ class ClearScreenTest {
         assertEquals("     \n     \n     ", content);
     }
 
+    // clearScreen must reset every cell on the screen to a space with default attributes.
     @Test
     void clearScreenResetsAllCellsToEmpty() {
         buf.setCursor(0, 0);
@@ -34,6 +39,7 @@ class ClearScreenTest {
         }
     }
 
+    // clearScreen must leave the scrollback buffer intact.
     @Test
     void clearScreenDoesNotRemoveScrollback() {
         // Push something into scrollback
@@ -44,6 +50,7 @@ class ClearScreenTest {
         assertEquals(1, buf.getScrollbackSize(), "clearScreen must not touch scrollback");
     }
 
+    // clearAll must wipe the scrollback completely.
     @Test
     void clearAllRemovesScrollback() {
         buf.insertEmptyLine();
@@ -54,6 +61,7 @@ class ClearScreenTest {
         assertEquals(0, buf.getScrollbackSize());
     }
 
+    // clearAll must also clear the screen content, not only the scrollback.
     @Test
     void clearAllAlsoClearsScreen() {
         buf.setCursor(0, 0);
@@ -62,6 +70,7 @@ class ClearScreenTest {
         assertEquals(' ', buf.getChar(0, 0));
     }
 
+    // getScreenContent must return exactly height lines each of exactly width characters.
     @Test
     void getScreenContentHasCorrectDimensions() {
         String content = buf.getScreenContent();
